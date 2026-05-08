@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import seedData from './data.json';
+import { supabase } from './supabaseClient';
+import { createYearForUser, fetchYearsForUser, loadYearData, resetYearData, saveYearData } from './supabaseData';
 
-const apiBase = import.meta.env.VITE_API_BASE ?? 'http://localhost:3002/api';
 const tabs = ['Dashboard', 'Movimientos', 'Ahorros', 'Deudas', 'Gastos vs Sueldo'];
 const tabMeta = {
   Dashboard: 'Vista general',
@@ -59,36 +60,48 @@ function withJournal(data, action, detail = '') {
 }
 
 function App() {
-  const [authConfig, setAuthConfig] = useState({ username: 'orangelvc93', password: '123456' });
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem('control-gastos-auth') === 'true');
+  const [user, setUser] = useState(null);
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [data, setData] = useState(seedData);
   const [years, setYears] = useState([String(new Date().getFullYear())]);
   const [activeYear, setActiveYear] = useState(String(new Date().getFullYear()));
-  const [syncStatus, setSyncStatus] = useState('Conectando con JSON...');
+  const [syncStatus, setSyncStatus] = useState('Conectando con Supabase...');
   const [selectedMonth, setSelectedMonth] = useState('Mayo');
   const [paymentForm, setPaymentForm] = useState(emptyPayment('Mayo'));
   const [incomeForm, setIncomeForm] = useState(emptyIncome('Mayo'));
 
   useEffect(() => {
-    fetch('/auth-config.json')
-      .then((response) => response.ok ? response.json() : authConfig)
-      .then((config) => {
-        setAuthConfig(config);
-        if (!config.username && !config.password) {
-          sessionStorage.setItem('control-gastos-auth', 'true');
-          setIsAuthenticated(true);
-        }
-      })
-      .catch(() => setAuthConfig(authConfig));
-    fetchYears();
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      setUser(session?.user ?? null);
+      setIsAuthenticated(Boolean(session?.user));
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setIsAuthenticated(Boolean(session?.user));
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
-    fetchData(activeYear);
-  }, [activeYear]);
+    if (!user) return;
+    fetchYears(user.id);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchData(activeYear, user.id);
+  }, [activeYear, user]);
 
   const monthlySummary = useMemo(() => data.months.map((month) => {
     const payments = sum(data.payments.filter((item) => item.month === month), (item) => item.amount);
@@ -107,46 +120,48 @@ function App() {
   const budgetWithoutInterest = incomeWithoutInterest - fixedExpenseTotal;
   const budgetWithInterest = fixedIncomeTotal - fixedExpenseTotal;
 
-  async function fetchYears() {
+  async function fetchYears(userId = user?.id) {
+    if (!userId) return;
     try {
-      const response = await fetch(`${apiBase}/years`);
-      if (!response.ok) throw new Error('No se pudieron leer los años');
-      const payload = await response.json();
-      setYears(payload.years);
-      setActiveYear(payload.currentYear);
+      const cloudYears = await fetchYearsForUser(supabase, userId);
+      setYears(cloudYears);
+      if (!cloudYears.includes(activeYear)) setActiveYear(cloudYears.at(-1));
     } catch (error) {
-      setSyncStatus(`Usando año local: ${error.message}`);
+      setSyncStatus(`No se pudieron leer los años: ${error.message}`);
     }
   }
 
-  async function fetchData(year = activeYear) {
+  async function fetchData(year = activeYear, userId = user?.id) {
+    if (!userId) return;
     try {
-      const response = await fetch(`${apiBase}/data?year=${year}`);
-      if (!response.ok) throw new Error('No se pudo leer el JSON');
-      setData(await response.json());
-      setSyncStatus(`Sincronizado con db/years/${year}.json`);
+      setData(await loadYearData(supabase, userId, year));
+      setSyncStatus(`Sincronizado con Supabase: ${year}`);
     } catch (error) {
-      setSyncStatus(`Usando respaldo: ${error.message}`);
+      setSyncStatus(`No se pudieron leer los datos: ${error.message}`);
     }
   }
 
   async function saveData(nextData, message, detail = '') {
+    if (!user) return;
     const journaledData = withJournal(nextData, message, detail);
-    const response = await fetch(`${apiBase}/data?year=${activeYear}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(journaledData),
-    });
-    const saved = await response.json();
-    setData(saved);
-    setSyncStatus(message);
+    try {
+      await saveYearData(supabase, user.id, activeYear, journaledData);
+      setData(await loadYearData(supabase, user.id, activeYear));
+      setSyncStatus(message);
+    } catch (error) {
+      setSyncStatus(`No se pudo guardar: ${error.message}`);
+    }
   }
 
   async function resetData() {
-    if (!window.confirm('Estas seguro de que quieres restaurar el JSON inicial? Se reemplazaran los datos actuales.')) return;
-    const response = await fetch(`${apiBase}/reset?year=${activeYear}`, { method: 'POST' });
-    setData(await response.json());
-    setSyncStatus('JSON restaurado con datos iniciales');
+    if (!user) return;
+    if (!window.confirm('Estas seguro de que quieres restaurar los datos iniciales? Se reemplazaran los datos actuales.')) return;
+    try {
+      setData(await resetYearData(supabase, user.id, activeYear));
+      setSyncStatus('Datos iniciales restaurados en Supabase');
+    } catch (error) {
+      setSyncStatus(`No se pudo restaurar: ${error.message}`);
+    }
   }
 
   async function createYear() {
@@ -156,28 +171,29 @@ function App() {
       window.alert('Ingresa un año válido de 4 dígitos.');
       return;
     }
-    const response = await fetch(`${apiBase}/years`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ year }),
-    });
-    const payload = await response.json();
-    setYears(payload.years);
-    setActiveYear(payload.currentYear);
-    setSyncStatus(`Año ${payload.currentYear} creado`);
+    if (!user) return;
+    try {
+      await createYearForUser(supabase, user.id, year);
+      const nextYears = await fetchYearsForUser(supabase, user.id);
+      setYears(nextYears);
+      setActiveYear(year);
+      setSyncStatus(`Año ${year} creado`);
+    } catch (error) {
+      setSyncStatus(`No se pudo crear el año: ${error.message}`);
+    }
   }
 
   async function addPayment(event) {
     event.preventDefault();
     const nextData = { ...data, payments: [...data.payments, { ...paymentForm, amount: toNumber(paymentForm.amount) }] };
-    await saveData(nextData, 'Pago guardado en JSON', paymentForm);
+    await saveData(nextData, 'Pago guardado en Supabase', paymentForm);
     setPaymentForm(emptyPayment(selectedMonth));
   }
 
   async function addIncome(event) {
     event.preventDefault();
     const nextData = { ...data, income: [...data.income, { ...incomeForm, amount: toNumber(incomeForm.amount) }] };
-    await saveData(nextData, 'Ganancia guardada en JSON', incomeForm);
+    await saveData(nextData, 'Ganancia guardada en Supabase', incomeForm);
     setIncomeForm(emptyIncome(selectedMonth));
   }
 
@@ -186,19 +202,24 @@ function App() {
     await saveData(nextData, message, detail);
   }
 
-  function login(event) {
+  async function login(event) {
     event.preventDefault();
-    if (loginForm.username === authConfig.username && loginForm.password === authConfig.password) {
-      sessionStorage.setItem('control-gastos-auth', 'true');
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email: loginForm.email,
+      password: loginForm.password,
+    });
+    if (!error) {
+      setUser(authData.user);
       setIsAuthenticated(true);
       setLoginError('');
       return;
     }
-    setLoginError('Usuario o contrasena incorrectos');
+    setLoginError('Email o contrasena incorrectos');
   }
 
-  function logout() {
-    sessionStorage.removeItem('control-gastos-auth');
+  async function logout() {
+    await supabase.auth.signOut();
+    setUser(null);
     setIsAuthenticated(false);
   }
 
@@ -209,9 +230,9 @@ function App() {
       prevBtnText: 'Anterior',
       doneBtnText: 'Listo',
       steps: [
-        { element: '[data-tour="header"]', popover: { title: 'Centro de control', description: 'Aqui ves el estado de sincronizacion con el JSON y puedes restaurar la base inicial.' } },
+        { element: '[data-tour="header"]', popover: { title: 'Centro de control', description: 'Aqui ves el estado de sincronizacion con Supabase y puedes restaurar la base inicial.' } },
         { element: '[data-tour="nav"]', popover: { title: 'Menu principal', description: 'Cambia entre Dashboard, movimientos, ahorros, deudas y presupuesto.' } },
-        { element: '[data-tour="workspace"]', popover: { title: 'Area de trabajo', description: 'Cada seccion permite crear, editar o eliminar informacion. Los cambios se guardan automaticamente en JSON.' } },
+        { element: '[data-tour="workspace"]', popover: { title: 'Area de trabajo', description: 'Cada seccion permite crear, editar o eliminar informacion. Los cambios se guardan automaticamente en Supabase.' } },
         { element: '[data-tour="help"]', popover: { title: 'Ayuda guiada', description: 'Puedes volver a ejecutar este recorrido cuando necesites recordar el flujo.' } },
       ],
     }).drive();
@@ -223,12 +244,12 @@ function App() {
         <form className="login-card" onSubmit={login}>
           <p className="eyebrow">Acceso privado</p>
           <h1>Control de gastos</h1>
-          <p>Ingresa tus credenciales para abrir la aplicacion financiera.</p>
-          <input placeholder="Usuario" value={loginForm.username} onChange={(event) => setLoginForm({ ...loginForm, username: event.target.value })} required autoFocus />
+          <p>Ingresa con el usuario creado en Supabase.</p>
+          <input type="email" placeholder="Email" value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} required autoFocus />
           <input type="password" placeholder="Contrasena" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} required />
           {loginError && <strong className="login-error">{loginError}</strong>}
           <button className="ghost-button" type="submit">Entrar</button>
-          <small>Credenciales configurables en <code>public/auth-config.json</code>.</small>
+          <small>Los usuarios se administran manualmente desde Supabase Auth.</small>
         </form>
       </main>
     );
@@ -239,9 +260,9 @@ function App() {
       <header className="command-center" data-tour="header">
         <span className="sync-badge">{syncStatus}</span>
         <div>
-          <p className="eyebrow">Libro financiero 2026</p>
+          <p className="eyebrow">Libro financiero {activeYear}</p>
           <h1>Control de gastos</h1>
-          <p>Panel operativo conectado a JSON para pagos, ingresos, ahorros, cuotas y presupuesto.</p>
+          <p>Panel operativo conectado a Supabase para pagos, ingresos, ahorros, cuotas y presupuesto.</p>
         </div>
         <div className="command-actions">
           <div className="year-controls">
@@ -251,7 +272,7 @@ function App() {
             <button className="ghost-button secondary" onClick={createYear}>Nuevo año</button>
           </div>
           <button className="ghost-button secondary" data-tour="help" onClick={startHelpTour}>Ayuda</button>
-          <button className="ghost-button" onClick={resetData}>Restaurar JSON inicial</button>
+          <button className="ghost-button" onClick={resetData}>Restaurar datos iniciales</button>
         </div>
       </header>
       <button className="logout-sticky" onClick={logout}>Salir</button>
@@ -334,7 +355,7 @@ function Movements({ data, selectedMonth, setSelectedMonth, paymentForm, setPaym
     if (amount === null) return;
     const concept = window.prompt('Concepto', row.concept ?? '');
     if (concept === null) return;
-    await updateCollection(collection, (items) => items.map((item, index) => index === row.index ? { ...item, amount: toNumber(amount), concept } : item), 'Movimiento editado en JSON');
+    await updateCollection(collection, (items) => items.map((item, index) => index === row.index ? { ...item, amount: toNumber(amount), concept } : item), 'Movimiento editado en Supabase');
   }
 
   return (
@@ -384,7 +405,7 @@ function MovementPanel({ title, form, setForm, onSubmit, type, concepts }) {
 function DataTable({ rows, collection, updateCollection, editMovement, type }) {
   return (
     <div className="table-wrap"><table><thead><tr><th>Fecha</th><th>{type === 'payment' ? 'Categoria' : 'Origen'}</th><th>Concepto</th><th>{type === 'payment' ? 'Estado' : 'Tipo'}</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>
-      {rows.map((row) => <tr key={`${collection}-${row.index}`}><td>{row.date || '-'}</td><td>{type === 'payment' ? row.category : row.source}</td><td>{row.concept}</td><td>{type === 'payment' ? row.status : row.type}</td><td>{money.format(toNumber(row.amount))}</td><td className="actions"><button className="link-button" onClick={() => editMovement(collection, row)}>Editar</button><button className="link-button" onClick={() => updateCollection(collection, (items) => items.filter((_, index) => index !== row.index), 'Movimiento eliminado del JSON')}>Eliminar</button></td></tr>)}
+      {rows.map((row) => <tr key={`${collection}-${row.index}`}><td>{row.date || '-'}</td><td>{type === 'payment' ? row.category : row.source}</td><td>{row.concept}</td><td>{type === 'payment' ? row.status : row.type}</td><td>{money.format(toNumber(row.amount))}</td><td className="actions"><button className="link-button" onClick={() => editMovement(collection, row)}>Editar</button><button className="link-button" onClick={() => updateCollection(collection, (items) => items.filter((_, index) => index !== row.index), 'Movimiento eliminado de Supabase')}>Eliminar</button></td></tr>)}
     </tbody></table></div>
   );
 }
@@ -423,7 +444,7 @@ function SavingsAccount({ account, index, data, saveSavings }) {
   function addRow(event) {
     event.preventDefault();
     const nextRow = { month: form.month, initial: lastFinal, deposit: form.deposit === '' ? null : toNumber(form.deposit), interest: toNumber(form.interest) };
-    updateAccount({ ...account, rows: [...account.rows, nextRow] }, 'Ahorro agregado al JSON');
+    updateAccount({ ...account, rows: [...account.rows, nextRow] }, 'Ahorro agregado en Supabase');
     setForm({ month: form.month, initial: finalSaving(nextRow), deposit: '', interest: '' });
   }
   function renameAccount() {
@@ -439,12 +460,12 @@ function SavingsAccount({ account, index, data, saveSavings }) {
     if (interest === null) return;
     const deposit = window.prompt('Aporte nuevo', current.deposit ?? '');
     if (deposit === null) return;
-    updateAccount({ ...account, rows: account.rows.map((row, itemIndex) => itemIndex === rowIndex ? { ...row, interest: toNumber(interest), deposit: deposit === '' ? null : toNumber(deposit) } : row) }, 'Ahorro editado en JSON');
+    updateAccount({ ...account, rows: account.rows.map((row, itemIndex) => itemIndex === rowIndex ? { ...row, interest: toNumber(interest), deposit: deposit === '' ? null : toNumber(deposit) } : row) }, 'Ahorro editado en Supabase');
   }
   return (
     <article className="ledger-card savings-card">
       <div className="section-title"><h2>{account.name}</h2><div className="actions"><button className="link-button" onClick={renameAccount}>Editar cuenta</button><button className="link-button" onClick={deleteAccount}>Eliminar cuenta</button></div></div>
-      <Table columns={['Mes', 'Saldo inicial', 'Aporte', 'Interes', 'Saldo final', 'Eficiencia', 'Acciones']} rows={rows.map(({ display, rowIndex }) => [...display, <span className="actions"><button className="link-button" onClick={() => editRow(rowIndex)}>Editar</button><button className="link-button" onClick={() => updateAccount({ ...account, rows: account.rows.filter((_, itemIndex) => itemIndex !== rowIndex) }, 'Ahorro eliminado del JSON')}>Eliminar</button></span>])} />
+      <Table columns={['Mes', 'Saldo inicial', 'Aporte', 'Interes', 'Saldo final', 'Eficiencia', 'Acciones']} rows={rows.map(({ display, rowIndex }) => [...display, <span className="actions"><button className="link-button" onClick={() => editRow(rowIndex)}>Editar</button><button className="link-button" onClick={() => updateAccount({ ...account, rows: account.rows.filter((_, itemIndex) => itemIndex !== rowIndex) }, 'Ahorro eliminado de Supabase')}>Eliminar</button></span>])} />
       <p className="total-line">Ultimo saldo final: <strong>{money.format(lastFinal)}</strong></p>
       <form className="movement-form compact-form" onSubmit={addRow}>
         <input value={form.month} onChange={(event) => setForm({ ...form, month: event.target.value })} placeholder="Mes" required />
@@ -463,7 +484,7 @@ function Debts({ data, debts, saveData }) {
   function saveDebts(debtsNext, message) { return saveData({ ...data, debts: debtsNext }, message); }
   function addDebt(event) {
     event.preventDefault();
-    saveDebts([...data.debts, { ...form, total: toNumber(form.total), monthlyPayment: toNumber(form.monthlyPayment), totalInstallments: toNumber(form.totalInstallments), currentInstallment: toNumber(form.currentInstallment), monthValue: form.monthValue === '' ? null : toNumber(form.monthValue), archived: false }], 'Deuda creada en JSON');
+    saveDebts([...data.debts, { ...form, total: toNumber(form.total), monthlyPayment: toNumber(form.monthlyPayment), totalInstallments: toNumber(form.totalInstallments), currentInstallment: toNumber(form.currentInstallment), monthValue: form.monthValue === '' ? null : toNumber(form.monthValue), archived: false }], 'Deuda creada en Supabase');
     setForm(emptyDebt());
   }
   function updateDebt(index, patch, message) {
@@ -474,12 +495,12 @@ function Debts({ data, debts, saveData }) {
     if (monthlyPayment === null) return;
     const totalInstallments = window.prompt('Cuotas totales', debt.totalInstallments);
     if (totalInstallments === null) return;
-    updateDebt(debt.index, { monthlyPayment: toNumber(monthlyPayment), totalInstallments: toNumber(totalInstallments) }, 'Deuda editada en JSON');
+    updateDebt(debt.index, { monthlyPayment: toNumber(monthlyPayment), totalInstallments: toNumber(totalInstallments) }, 'Deuda editada en Supabase');
   }
   return (
     <section className="stack">
       <article className="ledger-card form-card"><h2>Nueva deuda o cuota</h2><form className="movement-form" onSubmit={addDebt}>{['loan:Prestamo', 'description:Descripcion', 'total:Monto total', 'monthlyPayment:Cuota mensual', 'totalInstallments:Cuotas totales', 'currentInstallment:Cuotas pagadas'].map((field) => { const [key, label] = field.split(':'); return <input key={key} type={['total', 'monthlyPayment', 'totalInstallments', 'currentInstallment'].includes(key) ? 'number' : 'text'} step="0.01" min="0" placeholder={label} value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} required />; })}<input placeholder="Con o sin interes" value={form.interest} onChange={(event) => setForm({ ...form, interest: event.target.value })} required /><input type="number" step="0.01" min="0" placeholder="Valor del mes opcional" value={form.monthValue} onChange={(event) => setForm({ ...form, monthValue: event.target.value })} /><button type="submit">Agregar deuda</button></form></article>
-      <article className="ledger-card"><div className="section-title"><h2>Tabla de prestamos o deudas</h2><div className="summary-pills"><span>Activas: {activeDebts.length}</span><span>Restante: {money.format(sum(activeDebts, (debt) => debt.remainingDebt))}</span></div></div><div className="table-wrap"><table><thead><tr><th>Prestamo</th><th>Descripcion</th><th>Cuota</th><th>Pagadas</th><th>Faltantes</th><th>Deuda restante</th><th>Acciones</th></tr></thead><tbody>{activeDebts.map((debt) => <tr key={debt.index}><td>{debt.loan}</td><td>{debt.description}</td><td>{money.format(debt.monthlyPayment)}</td><td><input className="mini-input" type="number" min="0" max={debt.totalInstallments} value={debt.currentInstallment} onChange={(event) => updateDebt(debt.index, { currentInstallment: toNumber(event.target.value) }, 'Cuota pagada actualizada')} /></td><td>{debt.remainingMonths}</td><td>{money.format(debt.remainingDebt)}</td><td className="actions"><button className="link-button" onClick={() => editDebt(debt)}>Editar</button><button className="link-button" onClick={() => updateDebt(debt.index, { archived: true }, 'Deuda archivada')}>Archivar</button><button className="link-button" onClick={() => saveDebts(data.debts.filter((_, itemIndex) => itemIndex !== debt.index), 'Deuda eliminada del JSON')}>Eliminar</button></td></tr>)}</tbody></table></div></article>
+      <article className="ledger-card"><div className="section-title"><h2>Tabla de prestamos o deudas</h2><div className="summary-pills"><span>Activas: {activeDebts.length}</span><span>Restante: {money.format(sum(activeDebts, (debt) => debt.remainingDebt))}</span></div></div><div className="table-wrap"><table><thead><tr><th>Prestamo</th><th>Descripcion</th><th>Cuota</th><th>Pagadas</th><th>Faltantes</th><th>Deuda restante</th><th>Acciones</th></tr></thead><tbody>{activeDebts.map((debt) => <tr key={debt.index}><td>{debt.loan}</td><td>{debt.description}</td><td>{money.format(debt.monthlyPayment)}</td><td><input className="mini-input" type="number" min="0" max={debt.totalInstallments} value={debt.currentInstallment} onChange={(event) => updateDebt(debt.index, { currentInstallment: toNumber(event.target.value) }, 'Cuota pagada actualizada')} /></td><td>{debt.remainingMonths}</td><td>{money.format(debt.remainingDebt)}</td><td className="actions"><button className="link-button" onClick={() => editDebt(debt)}>Editar</button><button className="link-button" onClick={() => updateDebt(debt.index, { archived: true }, 'Deuda archivada')}>Archivar</button><button className="link-button" onClick={() => saveDebts(data.debts.filter((_, itemIndex) => itemIndex !== debt.index), 'Deuda eliminada de Supabase')}>Eliminar</button></td></tr>)}</tbody></table></div></article>
     </section>
   );
 }
