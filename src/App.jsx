@@ -205,7 +205,7 @@ function App() {
   async function login(event) {
     event.preventDefault();
     const { data: authData, error } = await supabase.auth.signInWithPassword({
-      email: loginForm.email,
+      email: loginForm.email.trim().toLowerCase(),
       password: loginForm.password,
     });
     if (!error) {
@@ -214,7 +214,7 @@ function App() {
       setLoginError('');
       return;
     }
-    setLoginError('Email o contrasena incorrectos');
+    setLoginError(error.message || 'Email o contrasena incorrectos');
   }
 
   async function logout() {
