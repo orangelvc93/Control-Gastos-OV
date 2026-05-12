@@ -40,6 +40,7 @@ create table if not exists public.income (
   source text default '',
   concept text default '',
   type text default 'Fijo',
+  status text default 'Pagado',
   amount numeric(12,2) not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -91,6 +92,7 @@ create table if not exists public.fixed_budget_expenses (
   year integer not null,
   description text default '',
   amount numeric(12,2) not null default 0,
+  use_fixed_amount boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -101,6 +103,7 @@ create table if not exists public.fixed_budget_income (
   year integer not null,
   description text default '',
   amount numeric(12,2) not null default 0,
+  use_fixed_amount boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -124,6 +127,10 @@ create table if not exists public.journal (
   detail text default '',
   created_at timestamptz not null default now()
 );
+
+alter table public.income add column if not exists status text default 'Pagado';
+alter table public.fixed_budget_expenses add column if not exists use_fixed_amount boolean not null default false;
+alter table public.fixed_budget_income add column if not exists use_fixed_amount boolean not null default false;
 
 create index if not exists years_user_year_idx on public.years(user_id, year);
 create index if not exists payments_user_year_idx on public.payments(user_id, year);

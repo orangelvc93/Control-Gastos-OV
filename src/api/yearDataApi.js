@@ -1,4 +1,4 @@
-import seedData from './data.json';
+import seedData from '../data.json';
 
 const tablesToReplace = [
   'payments',
@@ -122,11 +122,11 @@ function fromPayment(row) {
 }
 
 function toIncome(row, userId, year) {
-  return { user_id: userId, year, date: cleanDate(row.date), month: row.month, source: row.source, concept: row.concept, type: row.type, amount: Number(row.amount) || 0 };
+  return { user_id: userId, year, date: cleanDate(row.date), month: row.month, source: row.source, concept: row.concept, type: row.type, status: row.status ?? 'Pagado', amount: Number(row.amount) || 0 };
 }
 
 function fromIncome(row) {
-  return { date: row.date, month: row.month, source: row.source ?? '', concept: row.concept ?? '', type: row.type ?? 'Fijo', amount: Number(row.amount) || 0 };
+  return { date: row.date, month: row.month, source: row.source ?? '', concept: row.concept ?? '', type: row.type ?? 'Fijo', status: row.status ?? 'Pagado', amount: Number(row.amount) || 0 };
 }
 
 function toDebt(row, userId, year) {
@@ -168,11 +168,11 @@ function fromSavingEntry(row) {
 }
 
 function toBudgetItem(row, userId, year) {
-  return { user_id: userId, year, description: row.description, amount: Number(row.amount) || 0 };
+  return { user_id: userId, year, description: row.description, amount: Number(row.amount) || 0, use_fixed_amount: Boolean(row.useFixedAmount) };
 }
 
 function fromBudgetItem(row) {
-  return { description: row.description ?? '', amount: Number(row.amount) || 0 };
+  return { description: row.description ?? '', amount: Number(row.amount) || 0, useFixedAmount: Boolean(row.use_fixed_amount) };
 }
 
 function toBudgetDistribution(row, userId, year) {

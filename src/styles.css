@@ -30,6 +30,7 @@
 body {
   margin: 0;
   min-width: 320px;
+  scrollbar-gutter: stable;
 }
 
 body::before {
@@ -205,6 +206,130 @@ button {
   z-index: 20;
 }
 
+.modal-backdrop {
+  align-items: center;
+  background: rgba(2, 1, 6, 0.78);
+  display: grid;
+  inset: 0;
+  padding: 18px;
+  place-items: center;
+  position: fixed;
+  z-index: 50;
+}
+
+.edit-modal {
+  background:
+    radial-gradient(circle at top right, rgba(255, 138, 42, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(37, 25, 56, 0.99), rgba(16, 12, 24, 0.99));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 14px;
+  max-height: min(760px, calc(100vh - 36px));
+  overflow: auto;
+  padding: 16px;
+  width: min(720px, 100%);
+}
+
+.modal-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 900;
+  height: 34px;
+  line-height: 1;
+  width: 34px;
+}
+
+.modal-fields {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.modal-fields label {
+  display: grid;
+  gap: 5px;
+}
+
+.modal-fields span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.loading-backdrop {
+  align-items: center;
+  background: rgba(2, 1, 6, 0.62);
+  display: grid;
+  inset: 0;
+  padding: 18px;
+  place-items: center;
+  position: fixed;
+  z-index: 80;
+}
+
+.loading-card {
+  align-items: center;
+  background:
+    radial-gradient(circle at top right, rgba(255, 138, 42, 0.2), transparent 36%),
+    linear-gradient(180deg, rgba(37, 25, 56, 0.98), rgba(16, 12, 24, 0.98));
+  border: 1px solid rgba(255, 177, 95, 0.34);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  min-width: 190px;
+  padding: 22px;
+}
+
+.loading-card strong {
+  color: #ffd7ad;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.loading-spinner {
+  animation: spin 760ms linear infinite;
+  border: 4px solid rgba(255, 255, 255, 0.16);
+  border-top-color: var(--orange);
+  border-right-color: var(--purple-2);
+  border-radius: 999px;
+  height: 44px;
+  width: 44px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .login-shell {
   align-items: center;
   display: grid;
@@ -273,6 +398,9 @@ button {
   color: var(--muted);
   display: grid;
   gap: 1px;
+  grid-template-rows: auto auto;
+  height: 78px;
+  align-content: center;
   min-width: 145px;
   padding: 9px 11px;
   text-align: left;
@@ -298,11 +426,21 @@ button {
   color: #d9c9ff;
 }
 
+.app-nav button:focus-visible {
+  outline: 2px solid rgba(246, 240, 234, 0.92);
+  outline-offset: -4px;
+}
+
 .workspace,
 .stack {
   display: grid;
   gap: 12px;
   min-width: 0;
+}
+
+.workspace > section {
+  min-width: 0;
+  width: 100%;
 }
 
 .grid-layout,
@@ -347,6 +485,19 @@ button {
   position: absolute;
   right: 14px;
   top: 0;
+}
+
+.empty-state {
+  color: var(--muted);
+  display: grid;
+  gap: 6px;
+  min-height: 118px;
+  place-content: center start;
+}
+
+.empty-state strong {
+  color: var(--text);
+  font-size: 1rem;
 }
 
 .span-2 {
@@ -515,6 +666,11 @@ input:disabled {
   overflow-x: auto;
 }
 
+.table-shell {
+  display: grid;
+  gap: 8px;
+}
+
 table {
   border-collapse: collapse;
   min-width: 760px;
@@ -542,10 +698,79 @@ th {
   text-transform: uppercase;
 }
 
+.filter-row th {
+  background: rgba(12, 8, 20, 0.94);
+  padding: 6px 8px;
+}
+
+.table-filter {
+  border-radius: 9px;
+  font-size: 0.72rem;
+  padding: 6px 8px;
+  width: 100%;
+}
+
 td {
-  background: rgba(4, 3, 9, 0.48);
-  color: #e9e1f2;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4eefc;
   font-size: 0.82rem;
+}
+
+tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.115);
+}
+
+tbody tr.pending-row td,
+tbody tr.pending-row:nth-child(even) td {
+  background: rgba(251, 113, 133, 0.2);
+  border-bottom-color: rgba(251, 113, 133, 0.28);
+}
+
+.empty-row {
+  color: var(--muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+.table-pagination {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.table-pagination span,
+.table-pagination strong {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.pagination-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.pagination-actions select,
+.pagination-actions button {
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  padding: 7px 10px;
+}
+
+.pagination-actions button {
+  background: rgba(255, 138, 42, 0.1);
+  border: 1px solid rgba(255, 138, 42, 0.22);
+  color: var(--orange-2);
+}
+
+.pagination-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .movement-form {
@@ -567,6 +792,31 @@ td {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+}
+
+.inline-check,
+.checkbox-field {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 11px;
+  color: var(--muted);
+  display: flex !important;
+  gap: 8px !important;
+  font-size: 0.76rem;
+  font-weight: 900;
+  padding: 9px 10px;
+}
+
+.inline-check input,
+.checkbox-field input {
+  box-shadow: none;
+  min-width: auto;
+  padding: 0;
+}
+
+.checkbox-field span {
+  color: var(--muted);
 }
 
 .link-button {
@@ -604,6 +854,17 @@ td {
   font-size: 0.76rem;
   font-weight: 800;
   padding: 7px 10px;
+}
+
+.notice-line {
+  background: rgba(251, 113, 133, 0.12);
+  border: 1px solid rgba(251, 113, 133, 0.22);
+  border-radius: 12px;
+  color: #fecdd3;
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin: 0 0 10px;
+  padding: 9px 10px;
 }
 
 @media (max-width: 980px) {
@@ -648,7 +909,8 @@ td {
   }
 
   .movement-form,
-  .kpi-grid {
+  .kpi-grid,
+  .modal-fields {
     grid-template-columns: 1fr;
   }
 
