@@ -56,6 +56,7 @@ export function Movements({
             ...(collection === 'income' ? { type: values.type } : {}),
             status: values.status,
             amount: toNumber(values.amount),
+            manuallyEdited: true,
           }
           : item
       )),

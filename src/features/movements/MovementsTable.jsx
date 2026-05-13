@@ -11,6 +11,7 @@ export function MovementsTable({ collection, deleteMovement, editMovement, rows,
 
   return (
     <Table
+      className="movements-table"
       columns={columns}
       rows={rows.map((row) => {
         const source = type === 'payment' ? row.category : row.source;

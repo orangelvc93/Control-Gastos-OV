@@ -41,7 +41,9 @@ export function CommandCenter({
         <Button variant="secondary" data-tour="help" onClick={startHelpTour}>
           Ayuda
         </Button>
-        <Button variant="secondary" onClick={exportExcel}>Exportar Excel</Button>
+        <Button variant="secondary" onClick={exportExcel}>
+          Exportar Excel
+        </Button>
         <Button onClick={resetData}>Restaurar datos iniciales</Button>
       </div>
     </header>

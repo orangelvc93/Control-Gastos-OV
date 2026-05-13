@@ -55,6 +55,7 @@ export function EditModal({ fields, initialValues, onClose, onSave, title }) {
               <label key={field.name}>
                 <span>{field.label}</span>
                 <Input
+                  disabled={field.disabled}
                   max={field.max}
                   min={field.min}
                   step={field.step}

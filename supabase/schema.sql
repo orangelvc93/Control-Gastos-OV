@@ -21,6 +21,10 @@ create table if not exists public.payments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   year integer not null,
+  app_id text,
+  source_id text,
+  generated_by text default 'manual',
+  manually_edited boolean not null default false,
   date date,
   month text not null,
   category text default '',
@@ -35,6 +39,10 @@ create table if not exists public.income (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   year integer not null,
+  app_id text,
+  source_id text,
+  generated_by text default 'manual',
+  manually_edited boolean not null default false,
   date date,
   month text not null,
   source text default '',
@@ -50,6 +58,7 @@ create table if not exists public.debts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   year integer not null,
+  app_id text,
   loan text default '',
   description text default '',
   total numeric(12,2) not null default 0,
@@ -67,7 +76,10 @@ create table if not exists public.savings_accounts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   year integer not null,
+  app_id text,
   name text not null,
+  color text default 'purple',
+  use_current_interest_efficiency boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -77,10 +89,12 @@ create table if not exists public.savings_entries (
   user_id uuid not null references auth.users(id) on delete cascade,
   account_id uuid not null references public.savings_accounts(id) on delete cascade,
   year integer not null,
+  app_id text,
   date date,
   description text default '',
   initial numeric(12,2) not null default 0,
   deposit numeric(12,2) not null default 0,
+  withdrawal numeric(12,2) not null default 0,
   interest numeric(12,2) not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -90,9 +104,11 @@ create table if not exists public.fixed_budget_expenses (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   year integer not null,
+  app_id text,
   description text default '',
   amount numeric(12,2) not null default 0,
   use_fixed_amount boolean not null default false,
+  is_interest boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -101,6 +117,7 @@ create table if not exists public.fixed_budget_income (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   year integer not null,
+  app_id text,
   description text default '',
   amount numeric(12,2) not null default 0,
   use_fixed_amount boolean not null default false,
@@ -112,6 +129,7 @@ create table if not exists public.fixed_budget_distribution (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   year integer not null,
+  app_id text,
   description text default '',
   percent numeric(8,6) not null default 0,
   destination text default '',
@@ -129,8 +147,26 @@ create table if not exists public.journal (
 );
 
 alter table public.income add column if not exists status text default 'Pagado';
+alter table public.savings_accounts add column if not exists color text default 'purple';
+alter table public.savings_accounts add column if not exists use_current_interest_efficiency boolean not null default false;
 alter table public.fixed_budget_expenses add column if not exists use_fixed_amount boolean not null default false;
 alter table public.fixed_budget_income add column if not exists use_fixed_amount boolean not null default false;
+alter table public.payments add column if not exists app_id text;
+alter table public.payments add column if not exists source_id text;
+alter table public.payments add column if not exists generated_by text default 'manual';
+alter table public.payments add column if not exists manually_edited boolean not null default false;
+alter table public.income add column if not exists app_id text;
+alter table public.income add column if not exists source_id text;
+alter table public.income add column if not exists generated_by text default 'manual';
+alter table public.income add column if not exists manually_edited boolean not null default false;
+alter table public.debts add column if not exists app_id text;
+alter table public.savings_accounts add column if not exists app_id text;
+alter table public.savings_entries add column if not exists app_id text;
+alter table public.savings_entries add column if not exists withdrawal numeric(12,2) not null default 0;
+alter table public.fixed_budget_expenses add column if not exists app_id text;
+alter table public.fixed_budget_income add column if not exists app_id text;
+alter table public.fixed_budget_income add column if not exists is_interest boolean not null default false;
+alter table public.fixed_budget_distribution add column if not exists app_id text;
 
 create index if not exists years_user_year_idx on public.years(user_id, year);
 create index if not exists payments_user_year_idx on public.payments(user_id, year);

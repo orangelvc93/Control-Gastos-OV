@@ -56,6 +56,7 @@ function App() {
               selectedMonth={finance.selectedMonth}
               setSelectedMonth={finance.setSelectedMonth}
               selectedSummary={finance.selectedSummary}
+              savingsGrowthSummary={finance.savingsGrowthSummary}
               debts={finance.activeDebts}
               totalDebtPayment={finance.totalDebtPayment}
               totalRemainingDebt={finance.totalRemainingDebt}

@@ -4,7 +4,7 @@ import { supabase } from '../api/supabaseClient';
 import { createYearForUser, fetchYearsForUser, loadYearData, resetYearData, saveYearData } from '../api/yearDataApi';
 import { exportFinanceBook } from '../shared/lib/exportExcel';
 import { buildDateFromParts, getDateDay } from '../shared/lib/date';
-import { buildDistributionRows, emptyIncome, emptyPayment, hydrateDebt, withJournal } from '../shared/lib/finance';
+import { buildDistributionRows, emptyIncome, emptyPayment, finalSaving, hydrateDebt, recalculateSavingsRows, withJournal } from '../shared/lib/finance';
 import { sum, toNumber } from '../shared/lib/numbers';
 
 export function useFinanceBook(user, startProcessing = () => () => {}) {
@@ -40,7 +40,7 @@ export function useFinanceBook(user, startProcessing = () => () => {}) {
   const fixedExpenseTotal = sum(data.fixedBudget.expenses, (item) => item.amount);
   const fixedIncomeTotal = sum(data.fixedBudget.income, (item) => item.amount);
   const incomeWithoutInterest = sum(
-    data.fixedBudget.income.filter((item) => !item.description.toLowerCase().includes('interes')),
+    data.fixedBudget.income.filter((item) => !item.isInterest),
     (item) => item.amount,
   );
   const budgetWithoutInterest = incomeWithoutInterest - fixedExpenseTotal;
@@ -53,6 +53,21 @@ export function useFinanceBook(user, startProcessing = () => () => {}) {
     () => buildDistributionRows(budgetWithoutInterest, data.fixedBudget.distribution),
     [budgetWithoutInterest, data.fixedBudget.distribution],
   );
+  const savingsGrowthSummary = useMemo(() => data.savings.map((account) => {
+    const rows = recalculateSavingsRows(account.rows);
+
+    return {
+      name: account.name,
+      color: account.color ?? 'purple',
+      totalInterest: sum(rows, (row) => row.interest),
+      lastFinal: rows.length ? finalSaving(rows.at(-1)) : 0,
+      rows: rows.map((row) => ({
+        month: row.month,
+        interest: toNumber(row.interest),
+        final: finalSaving(row),
+      })),
+    };
+  }), [data.savings]);
 
   async function runProcess(task) {
     const stopProcessing = startProcessing();
@@ -196,6 +211,7 @@ export function useFinanceBook(user, startProcessing = () => () => {}) {
     saveData,
     selectedMonth,
     selectedSummary,
+    savingsGrowthSummary,
     setActiveYear,
     setIncomeForm,
     setPaymentForm,

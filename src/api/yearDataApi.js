@@ -1,4 +1,5 @@
 import seedData from '../data.json';
+import { createAppId } from '../shared/lib/finance';
 
 const tablesToReplace = [
   'payments',
@@ -51,7 +52,10 @@ export async function loadYearData(supabase, userId, year) {
     income: income.map(fromIncome),
     debts: debts.map(fromDebt),
     savings: savingsAccounts.map((account) => ({
+      appId: account.app_id ?? createAppId('saving-account'),
       name: account.name,
+      color: account.color ?? 'purple',
+      useCurrentInterestEfficiency: Boolean(account.use_current_interest_efficiency),
       rows: savingsEntries.filter((entry) => entry.account_id === account.id).map(fromSavingEntry),
     })),
     fixedBudget: {
@@ -76,14 +80,21 @@ export async function saveYearData(supabase, userId, year, data) {
   await insertRows(supabase, 'income', data.income.map((row) => toIncome(row, userId, normalizedYear)));
   await insertRows(supabase, 'debts', data.debts.map((row) => toDebt(row, userId, normalizedYear)));
   await insertRows(supabase, 'fixed_budget_expenses', data.fixedBudget.expenses.map((row) => toBudgetItem(row, userId, normalizedYear)));
-  await insertRows(supabase, 'fixed_budget_income', data.fixedBudget.income.map((row) => toBudgetItem(row, userId, normalizedYear)));
+  await insertRows(supabase, 'fixed_budget_income', data.fixedBudget.income.map((row) => toBudgetItem(row, userId, normalizedYear, true)));
   await insertRows(supabase, 'fixed_budget_distribution', data.fixedBudget.distribution.map((row) => toBudgetDistribution(row, userId, normalizedYear)));
   await insertRows(supabase, 'journal', (data.journal ?? []).map((row) => toJournal(row, userId, normalizedYear)));
 
   for (const account of data.savings ?? []) {
     const { data: insertedAccount, error } = await supabase
       .from('savings_accounts')
-      .insert({ user_id: userId, year: normalizedYear, name: account.name })
+      .insert({
+        user_id: userId,
+        year: normalizedYear,
+        app_id: account.appId ?? createAppId('saving-account'),
+        name: account.name,
+        color: account.color ?? 'purple',
+        use_current_interest_efficiency: Boolean(account.useCurrentInterestEfficiency),
+      })
       .select('id')
       .single();
     if (error) throw error;
@@ -114,25 +125,76 @@ function cleanDate(value) {
 }
 
 function toPayment(row, userId, year) {
-  return { user_id: userId, year, date: cleanDate(row.date), month: row.month, category: row.category, concept: row.concept, status: row.status, amount: Number(row.amount) || 0 };
+  return {
+    user_id: userId,
+    year,
+    app_id: row.appId ?? createAppId('payment'),
+    source_id: row.sourceId ?? null,
+    generated_by: row.generatedBy ?? 'manual',
+    manually_edited: Boolean(row.manuallyEdited),
+    date: cleanDate(row.date),
+    month: row.month,
+    category: row.category,
+    concept: row.concept,
+    status: row.status,
+    amount: Number(row.amount) || 0,
+  };
 }
 
 function fromPayment(row) {
-  return { date: row.date, month: row.month, category: row.category ?? '', concept: row.concept ?? '', status: row.status ?? 'Pagado', amount: Number(row.amount) || 0 };
+  return {
+    appId: row.app_id ?? createAppId('payment'),
+    sourceId: row.source_id ?? null,
+    generatedBy: row.generated_by ?? 'manual',
+    manuallyEdited: Boolean(row.manually_edited),
+    date: row.date,
+    month: row.month,
+    category: row.category ?? '',
+    concept: row.concept ?? '',
+    status: row.status ?? 'Pagado',
+    amount: Number(row.amount) || 0,
+  };
 }
 
 function toIncome(row, userId, year) {
-  return { user_id: userId, year, date: cleanDate(row.date), month: row.month, source: row.source, concept: row.concept, type: row.type, status: row.status ?? 'Pagado', amount: Number(row.amount) || 0 };
+  return {
+    user_id: userId,
+    year,
+    app_id: row.appId ?? createAppId('income'),
+    source_id: row.sourceId ?? null,
+    generated_by: row.generatedBy ?? 'manual',
+    manually_edited: Boolean(row.manuallyEdited),
+    date: cleanDate(row.date),
+    month: row.month,
+    source: row.source,
+    concept: row.concept,
+    type: row.type,
+    status: row.status ?? 'Pagado',
+    amount: Number(row.amount) || 0,
+  };
 }
 
 function fromIncome(row) {
-  return { date: row.date, month: row.month, source: row.source ?? '', concept: row.concept ?? '', type: row.type ?? 'Fijo', status: row.status ?? 'Pagado', amount: Number(row.amount) || 0 };
+  return {
+    appId: row.app_id ?? createAppId('income'),
+    sourceId: row.source_id ?? null,
+    generatedBy: row.generated_by ?? 'manual',
+    manuallyEdited: Boolean(row.manually_edited),
+    date: row.date,
+    month: row.month,
+    source: row.source ?? '',
+    concept: row.concept ?? '',
+    type: row.type ?? 'Fijo',
+    status: row.status ?? 'Pagado',
+    amount: Number(row.amount) || 0,
+  };
 }
 
 function toDebt(row, userId, year) {
   return {
     user_id: userId,
     year,
+    app_id: row.appId ?? createAppId('debt'),
     loan: row.loan,
     description: row.description,
     total: Number(row.total) || 0,
@@ -147,6 +209,7 @@ function toDebt(row, userId, year) {
 
 function fromDebt(row) {
   return {
+    appId: row.app_id ?? createAppId('debt'),
     loan: row.loan ?? '',
     description: row.description ?? '',
     total: Number(row.total) || 0,
@@ -160,27 +223,28 @@ function fromDebt(row) {
 }
 
 function toSavingEntry(row, userId, year, accountId) {
-  return { user_id: userId, year, account_id: accountId, description: row.month ?? row.description ?? '', initial: Number(row.initial) || 0, deposit: Number(row.deposit) || 0, interest: Number(row.interest) || 0 };
+  return { user_id: userId, year, account_id: accountId, app_id: row.appId ?? createAppId('saving-entry'), description: row.month ?? row.description ?? '', initial: Number(row.initial) || 0, deposit: Number(row.deposit) || 0, withdrawal: Number(row.withdrawal) || 0, interest: Number(row.interest) || 0 };
 }
 
 function fromSavingEntry(row) {
-  return { month: row.description ?? '', initial: Number(row.initial) || 0, deposit: Number(row.deposit) || 0, interest: Number(row.interest) || 0 };
+  return { appId: row.app_id ?? createAppId('saving-entry'), month: row.description ?? '', initial: Number(row.initial) || 0, deposit: Number(row.deposit) || 0, withdrawal: Number(row.withdrawal) || 0, interest: Number(row.interest) || 0 };
 }
 
-function toBudgetItem(row, userId, year) {
-  return { user_id: userId, year, description: row.description, amount: Number(row.amount) || 0, use_fixed_amount: Boolean(row.useFixedAmount) };
+function toBudgetItem(row, userId, year, includeInterest = false) {
+  const item = { user_id: userId, year, app_id: row.appId ?? createAppId('budget-item'), description: row.description, amount: Number(row.amount) || 0, use_fixed_amount: Boolean(row.useFixedAmount) };
+  return includeInterest ? { ...item, is_interest: Boolean(row.isInterest) } : item;
 }
 
 function fromBudgetItem(row) {
-  return { description: row.description ?? '', amount: Number(row.amount) || 0, useFixedAmount: Boolean(row.use_fixed_amount) };
+  return { appId: row.app_id ?? createAppId('budget-item'), description: row.description ?? '', amount: Number(row.amount) || 0, useFixedAmount: Boolean(row.use_fixed_amount), isInterest: Boolean(row.is_interest) };
 }
 
 function toBudgetDistribution(row, userId, year) {
-  return { user_id: userId, year, description: row.description, percent: Number(row.percent) || 0, destination: row.destination };
+  return { user_id: userId, year, app_id: row.appId ?? createAppId('budget-distribution'), description: row.description, percent: Number(row.percent) || 0, destination: row.destination };
 }
 
 function fromBudgetDistribution(row) {
-  return { description: row.description ?? '', percent: Number(row.percent) || 0, destination: row.destination ?? '' };
+  return { appId: row.app_id ?? createAppId('budget-distribution'), description: row.description ?? '', percent: Number(row.percent) || 0, destination: row.destination ?? '' };
 }
 
 function toJournal(row, userId, year) {

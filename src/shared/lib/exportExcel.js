@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { formatExcelDate } from './date';
-import { finalSaving } from './finance';
+import { finalSaving, recalculateSavingsRows, savingEfficiency } from './finance';
 import { toNumber } from './numbers';
 
 function appendSheet(workbook, name, rows) {
@@ -60,14 +60,19 @@ export function exportFinanceBook({ activeYear, data, debtRows, distributionWith
     Archivada: debt.archived ? 'Si' : 'No',
   })));
 
-  appendSheet(workbook, 'Ahorros', data.savings.flatMap((account) => account.rows.map((row) => ({
-    Cuenta: account.name,
-    Mes: row.month,
-    'Saldo inicial': toNumber(row.initial),
-    Aporte: row.deposit === null ? '' : toNumber(row.deposit),
-    Interes: toNumber(row.interest),
-    'Saldo final': finalSaving(row),
-  }))));
+  appendSheet(workbook, 'Ahorros', data.savings.flatMap((account) => {
+    const rows = recalculateSavingsRows(account.rows);
+
+    return rows.map((row, rowIndex) => ({
+      Cuenta: account.name,
+      Mes: row.month,
+      'Saldo inicial': toNumber(row.initial),
+      Aporte: row.deposit === null ? '' : toNumber(row.deposit),
+      Interes: toNumber(row.interest),
+      'Saldo final': finalSaving(row),
+      Eficiencia: savingEfficiency(rows, rowIndex, Boolean(account.useCurrentInterestEfficiency)) ?? 'Pendiente',
+    }));
+  }));
 
   appendSheet(workbook, 'Gastos fijos', data.fixedBudget.expenses.map((row) => ({
     Descripcion: row.description,

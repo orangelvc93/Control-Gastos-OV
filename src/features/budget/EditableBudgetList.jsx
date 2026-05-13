@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createAppId } from '../../shared/lib/finance';
 import { money } from '../../shared/lib/money';
 import { toNumber } from '../../shared/lib/numbers';
 import { Button, LinkButton } from '../../shared/ui/Button';
@@ -7,14 +8,14 @@ import { EditModal } from '../../shared/ui/EditModal';
 import { NumberInput, TextInput } from '../../shared/ui/FormControls';
 import { Table } from '../../shared/ui/Table';
 
-export function EditableBudgetList({ items, onSave, title }) {
-  const [form, setForm] = useState({ description: '', amount: '', useFixedAmount: false });
+export function EditableBudgetList({ allowInterest = false, items, onSave, title }) {
+  const [form, setForm] = useState({ description: '', amount: '', useFixedAmount: false, isInterest: false });
   const [editingIndex, setEditingIndex] = useState(null);
 
   function addItem(event) {
     event.preventDefault();
-    onSave([...items, { description: form.description, amount: toNumber(form.amount), useFixedAmount: form.useFixedAmount }]);
-    setForm({ description: '', amount: '', useFixedAmount: false });
+    onSave([...items, { appId: createAppId('budget-item'), description: form.description, amount: toNumber(form.amount), useFixedAmount: form.useFixedAmount, ...(allowInterest ? { isInterest: form.isInterest } : {}) }]);
+    setForm({ description: '', amount: '', useFixedAmount: false, isInterest: false });
   }
 
   function editItem(index) {
@@ -24,7 +25,7 @@ export function EditableBudgetList({ items, onSave, title }) {
   function saveEdit(values) {
     onSave(items.map((item, itemIndex) => (
       itemIndex === editingIndex
-        ? { description: values.description, amount: toNumber(values.amount), useFixedAmount: Boolean(values.useFixedAmount) }
+        ? { ...item, description: values.description, amount: toNumber(values.amount), useFixedAmount: Boolean(values.useFixedAmount), ...(allowInterest ? { isInterest: Boolean(values.isInterest) } : {}) }
         : item
     )));
     setEditingIndex(null);
@@ -45,14 +46,21 @@ export function EditableBudgetList({ items, onSave, title }) {
           <input type="checkbox" checked={form.useFixedAmount} onChange={(event) => setForm({ ...form, useFixedAmount: event.target.checked })} />
           <span>Usar valor fijo</span>
         </label>
+        {allowInterest && (
+          <label className="inline-check">
+            <input type="checkbox" checked={form.isInterest} onChange={(event) => setForm({ ...form, isInterest: event.target.checked })} />
+            <span>Es interes</span>
+          </label>
+        )}
         <Button type="submit">Agregar</Button>
       </form>
       <Table
-        columns={['Descripcion', 'Valor', 'Valor fijo', 'Acciones']}
+        columns={['Descripcion', 'Valor', 'Valor fijo', ...(allowInterest ? ['Interes'] : []), 'Acciones']}
         rows={items.map((item, index) => [
           item.description,
           { content: money.format(item.amount), filterValue: item.amount },
           item.useFixedAmount ? 'Si' : 'No',
+          ...(allowInterest ? [item.isInterest ? 'Si' : 'No'] : []),
           {
             content: (
               <span className="actions">
@@ -71,11 +79,13 @@ export function EditableBudgetList({ items, onSave, title }) {
             description: items[editingIndex].description ?? '',
             amount: items[editingIndex].amount ?? '',
             useFixedAmount: Boolean(items[editingIndex].useFixedAmount),
+            isInterest: Boolean(items[editingIndex].isInterest),
           }}
           fields={[
             { name: 'description', label: 'Descripcion', type: 'text', required: true },
             { name: 'amount', label: 'Valor', type: 'number', required: true },
             { name: 'useFixedAmount', label: 'Usar valor fijo', type: 'checkbox' },
+            ...(allowInterest ? [{ name: 'isInterest', label: 'Es interes', type: 'checkbox' }] : []),
           ]}
           onClose={() => setEditingIndex(null)}
           onSave={saveEdit}

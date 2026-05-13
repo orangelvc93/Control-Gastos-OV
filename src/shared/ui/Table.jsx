@@ -19,7 +19,7 @@ function cellFilterValue(cell) {
   return '';
 }
 
-export function Table({ columns, rows }) {
+export function Table({ className = '', columns, rows }) {
   const [filters, setFilters] = useState(() => columns.map(() => ''));
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(7);
@@ -47,7 +47,7 @@ export function Table({ columns, rows }) {
   }
 
   return (
-    <div className="table-shell">
+    <div className={`table-shell ${className}`.trim()}>
       <div className="table-wrap">
         <table>
           <thead>

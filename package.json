@@ -19,6 +19,7 @@
     "express": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "recharts": "^3.8.1",
     "vite": "latest",
     "xlsx": "^0.18.5"
   }

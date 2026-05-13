@@ -57,6 +57,7 @@ export function Budget({ budgetWithInterest, budgetWithoutInterest, data, distri
       />
       <EditableBudgetList
         title="Ganancias fijas"
+        allowInterest
         items={data.fixedBudget.income}
         onSave={(items) => saveBudget({ ...data.fixedBudget, income: items }, 'Ganancias fijas actualizadas')}
       />
