@@ -223,11 +223,11 @@ function fromDebt(row) {
 }
 
 function toSavingEntry(row, userId, year, accountId) {
-  return { user_id: userId, year, account_id: accountId, app_id: row.appId ?? createAppId('saving-entry'), description: row.month ?? row.description ?? '', initial: Number(row.initial) || 0, deposit: Number(row.deposit) || 0, withdrawal: Number(row.withdrawal) || 0, interest: Number(row.interest) || 0 };
+  return { user_id: userId, year, account_id: accountId, app_id: row.appId ?? createAppId('saving-entry'), position: Number(row.position) || null, description: row.month ?? row.description ?? '', initial: Number(row.initial) || 0, deposit: Number(row.deposit) || 0, withdrawal: Number(row.withdrawal) || 0, interest: Number(row.interest) || 0 };
 }
 
 function fromSavingEntry(row) {
-  return { appId: row.app_id ?? createAppId('saving-entry'), month: row.description ?? '', initial: Number(row.initial) || 0, deposit: Number(row.deposit) || 0, withdrawal: Number(row.withdrawal) || 0, interest: Number(row.interest) || 0 };
+  return { appId: row.app_id ?? createAppId('saving-entry'), position: row.position == null ? null : Number(row.position), month: row.description ?? '', initial: Number(row.initial) || 0, deposit: Number(row.deposit) || 0, withdrawal: Number(row.withdrawal) || 0, interest: Number(row.interest) || 0 };
 }
 
 function toBudgetItem(row, userId, year, includeInterest = false) {

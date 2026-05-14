@@ -46,6 +46,12 @@ function sortSavingsRows(rows = []) {
   return rows
     .map((row, index) => ({ row, index }))
     .sort((left, right) => {
+      const leftOrder = Number(left.row.position);
+      const rightOrder = Number(right.row.position);
+
+      if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder) && leftOrder !== rightOrder) return leftOrder - rightOrder;
+      if (Number.isFinite(leftOrder) !== Number.isFinite(rightOrder)) return Number.isFinite(leftOrder) ? -1 : 1;
+
       const leftPosition = monthCyclePosition(left.row.month, startMonth);
       const rightPosition = monthCyclePosition(right.row.month, startMonth);
       if (leftPosition !== rightPosition) return leftPosition - rightPosition;
@@ -64,6 +70,7 @@ export function recalculateSavingsRows(rows = []) {
       {
         ...row,
         appId: row.appId ?? createAppId('saving-entry'),
+        position: Number.isFinite(Number(row.position)) ? Number(row.position) : index + 1,
         initial,
         deposit: row.deposit === null || row.deposit === '' ? null : toNumber(row.deposit),
         withdrawal: row.withdrawal === null || row.withdrawal === '' ? null : toNumber(row.withdrawal),

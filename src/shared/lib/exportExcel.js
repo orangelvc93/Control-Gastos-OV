@@ -65,6 +65,7 @@ export function exportFinanceBook({ activeYear, data, debtRows, distributionWith
 
     return rows.map((row, rowIndex) => ({
       Cuenta: account.name,
+      Orden: row.position,
       Mes: row.month,
       'Saldo inicial': toNumber(row.initial),
       Aporte: row.deposit === null ? '' : toNumber(row.deposit),

@@ -90,6 +90,7 @@ create table if not exists public.savings_entries (
   account_id uuid not null references public.savings_accounts(id) on delete cascade,
   year integer not null,
   app_id text,
+  position integer,
   date date,
   description text default '',
   initial numeric(12,2) not null default 0,
@@ -162,6 +163,7 @@ alter table public.income add column if not exists manually_edited boolean not n
 alter table public.debts add column if not exists app_id text;
 alter table public.savings_accounts add column if not exists app_id text;
 alter table public.savings_entries add column if not exists app_id text;
+alter table public.savings_entries add column if not exists position integer;
 alter table public.savings_entries add column if not exists withdrawal numeric(12,2) not null default 0;
 alter table public.fixed_budget_expenses add column if not exists app_id text;
 alter table public.fixed_budget_income add column if not exists app_id text;
@@ -174,6 +176,7 @@ create index if not exists income_user_year_idx on public.income(user_id, year);
 create index if not exists debts_user_year_idx on public.debts(user_id, year);
 create index if not exists savings_accounts_user_year_idx on public.savings_accounts(user_id, year);
 create index if not exists savings_entries_user_year_idx on public.savings_entries(user_id, year);
+create index if not exists savings_entries_position_idx on public.savings_entries(user_id, year, account_id, position);
 create index if not exists fixed_budget_expenses_user_year_idx on public.fixed_budget_expenses(user_id, year);
 create index if not exists fixed_budget_income_user_year_idx on public.fixed_budget_income(user_id, year);
 create index if not exists fixed_budget_distribution_user_year_idx on public.fixed_budget_distribution(user_id, year);

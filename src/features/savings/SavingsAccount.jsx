@@ -23,7 +23,9 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
   const recalculatedRows = recalculateSavingsRows(account.rows);
   const lastRow = recalculatedRows.at(-1);
   const lastFinal = lastRow ? finalSaving(lastRow) : 0;
+  const nextPosition = Math.max(0, ...recalculatedRows.map((row, rowIndex) => Number.isFinite(Number(row.position)) ? Number(row.position) : rowIndex + 1)) + 1;
   const [form, setForm] = useState({
+    position: nextPosition,
     month: "Mayo",
     initial: lastFinal,
     deposit: "",
@@ -39,6 +41,7 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
     return {
       rowIndex,
       display: [
+        row.position,
         row.month,
         { content: money.format(row.initial), filterValue: row.initial },
         { content: money.format(row.deposit), filterValue: row.deposit ?? "" },
@@ -65,6 +68,7 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
   function addRow(event) {
     event.preventDefault();
     const nextRow = {
+      position: toNumber(form.position),
       month: form.month,
       initial: lastFinal,
       deposit: form.deposit === "" ? null : toNumber(form.deposit),
@@ -76,6 +80,7 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
       "Ahorro agregado en Supabase",
     );
     setForm({
+      position: nextPosition + 1,
       month: form.month,
       initial: finalSaving(nextRow),
       deposit: "",
@@ -119,6 +124,7 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
           row.appId === editingRow.appId
             ? {
                 ...row,
+                position: toNumber(values.position),
                 month: values.month,
                 initial: editingRowIndex === 0 ? toNumber(values.initial) : row.initial,
                 interest: toNumber(values.interest),
@@ -179,6 +185,7 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
       <Table
         className="savings-table"
         columns={[
+          "Orden",
           "Mes",
           "Saldo inicial",
           "Aporte",
@@ -213,6 +220,14 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
       </Button>
       {isFormOpen && (
         <form className="movement-form compact-form" onSubmit={addRow}>
+          <NumberInput
+            value={form.position}
+            onChange={(event) => setForm({ ...form, position: event.target.value })}
+            placeholder="Orden"
+            min="1"
+            step="1"
+            required
+          />
           <Select value={form.month} onChange={(event) => setForm({ ...form, month: event.target.value })} required>
             {calendarMonths.map((month) => <option key={month}>{month}</option>)}
           </Select>
@@ -257,13 +272,22 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
         <EditModal
           title="Editar ahorro"
           initialValues={{
-            month: account.rows[editingRowIndex].month ?? "",
+            position: recalculatedRows[editingRowIndex].position ?? editingRowIndex + 1,
+            month: recalculatedRows[editingRowIndex].month ?? "",
             initial: recalculatedRows[editingRowIndex].initial ?? "",
             deposit: recalculatedRows[editingRowIndex].deposit ?? "",
             withdrawal: recalculatedRows[editingRowIndex].withdrawal ?? "",
             interest: recalculatedRows[editingRowIndex].interest ?? "",
           }}
           fields={[
+            {
+              name: "position",
+              label: "Orden",
+              type: "number",
+              min: "1",
+              step: "1",
+              required: true,
+            },
             { name: "month", label: "Mes", type: "select", options: calendarMonths, required: true },
             {
               name: "initial",
