@@ -255,3 +255,27 @@ create policy "Users can manage own fixed budget distribution" on public.fixed_b
 
 drop policy if exists "Users can manage own journal" on public.journal;
 create policy "Users can manage own journal" on public.journal for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Keep-alive: el plan gratuito pausa el proyecto tras 7 dias sin actividad.
+-- El workflow de GitHub llama a esta funcion con la anon key; escribe una fila para que cuente como actividad real.
+create table if not exists public.keepalive (
+  id integer primary key default 1 check (id = 1),
+  pinged_at timestamptz not null default now()
+);
+
+alter table public.keepalive enable row level security;
+revoke all on public.keepalive from anon, authenticated;
+
+create or replace function public.keepalive_ping()
+returns timestamptz
+language sql
+security definer
+set search_path = ''
+as $$
+  insert into public.keepalive (id, pinged_at) values (1, now())
+  on conflict (id) do update set pinged_at = excluded.pinged_at
+  returning pinged_at;
+$$;
+
+revoke all on function public.keepalive_ping() from public;
+grant execute on function public.keepalive_ping() to anon;
