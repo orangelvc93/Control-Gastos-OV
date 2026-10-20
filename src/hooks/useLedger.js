@@ -3,6 +3,27 @@ import { supabase } from '../api/supabaseClient';
 import * as api from '../api/ledgerApi';
 import { balancesById } from '../shared/lib/ledger';
 
+// Justo después de iniciar sesión o renovar el token, el servidor de datos de Supabase puede tener el reloj
+// unos segundos atrás del de autenticación y responder "JWT issued at future". Se resuelve solo: se reintenta.
+const CLOCK_SKEW_ERROR = /issued at future/i;
+
+async function withClockRetry(task, attempts = 4) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      if (attempt >= attempts || !CLOCK_SKEW_ERROR.test(error?.message ?? '')) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+    }
+  }
+}
+
+function friendlyError(error) {
+  return CLOCK_SKEW_ERROR.test(error?.message ?? '')
+    ? 'Supabase no reconoció la sesión todavía (diferencia de reloj en su servidor). Espera unos segundos y pulsa Reintentar.'
+    : error.message;
+}
+
 // Estado del libro contable. Cada acción guarda solo lo que cambió y luego recarga (son pocas filas).
 // Las acciones devuelven true/false para que los formularios no se cierren si falla el guardado.
 export function useLedger(userId, notify) {
@@ -12,12 +33,12 @@ export function useLedger(userId, notify) {
 
   const reload = useCallback(async () => {
     try {
-      setLedger(await api.fetchLedger(supabase));
+      setLedger(await withClockRetry(() => api.fetchLedger(supabase)));
       setStatus('ready');
       setLoadError('');
     } catch (error) {
       setStatus('error');
-      setLoadError(error.message);
+      setLoadError(friendlyError(error));
     }
   }, []);
 
@@ -27,12 +48,12 @@ export function useLedger(userId, notify) {
 
   const run = useCallback(async (task, successMessage) => {
     try {
-      await task();
+      await withClockRetry(task);
       await reload();
       if (successMessage) notify(successMessage);
       return true;
     } catch (error) {
-      notify(`No se pudo guardar: ${error.message}`, 'error');
+      notify(`No se pudo guardar: ${friendlyError(error)}`, 'error');
       return false;
     }
   }, [reload, notify]);
