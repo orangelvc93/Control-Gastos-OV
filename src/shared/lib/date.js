@@ -1,5 +1,7 @@
+// Fecha local (no UTC): en Ecuador toISOString() devuelve el día siguiente desde las 19:00.
 export function today() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 const monthNames = [

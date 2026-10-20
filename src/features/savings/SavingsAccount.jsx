@@ -23,10 +23,10 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
   const recalculatedRows = recalculateSavingsRows(account.rows);
   const lastRow = recalculatedRows.at(-1);
   const lastFinal = lastRow ? finalSaving(lastRow) : 0;
-  const nextPosition = Math.max(0, ...recalculatedRows.map((row, rowIndex) => Number.isFinite(Number(row.position)) ? Number(row.position) : rowIndex + 1)) + 1;
+  const nextPosition = Math.max(0, ...recalculatedRows.map((row) => row.position)) + 1;
   const [form, setForm] = useState({
     position: nextPosition,
-    month: "Mayo",
+    month: calendarMonths[new Date().getMonth()],
     initial: lastFinal,
     deposit: "",
     withdrawal: "",
@@ -57,7 +57,7 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
   });
 
   function updateAccount(nextAccount, message) {
-    saveSavings(
+    return saveSavings(
       data.savings.map((item, itemIndex) =>
         itemIndex === index ? nextAccount : item,
       ),
@@ -65,7 +65,7 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
     );
   }
 
-  function addRow(event) {
+  async function addRow(event) {
     event.preventDefault();
     const nextRow = {
       position: toNumber(form.position),
@@ -75,10 +75,11 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
       withdrawal: form.withdrawal === "" ? null : toNumber(form.withdrawal),
       interest: toNumber(form.interest),
     };
-    updateAccount(
+    const saved = await updateAccount(
       { ...account, rows: recalculateSavingsRows([...recalculatedRows, nextRow]) },
       "Ahorro agregado en Supabase",
     );
+    if (!saved) return;
     setForm({
       position: nextPosition + 1,
       month: form.month,
@@ -94,13 +95,12 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
     setEditingAccount(true);
   }
 
-  function saveAccountName(values) {
-    if (values.name)
-      updateAccount(
-        { ...account, name: values.name },
-        "Cuenta de ahorro editada",
-      );
-    setEditingAccount(false);
+  async function saveAccountName(values) {
+    const saved = !values.name || await updateAccount(
+      { ...account, name: values.name },
+      "Cuenta de ahorro editada",
+    );
+    if (saved) setEditingAccount(false);
   }
 
   function deleteAccount() {
@@ -115,9 +115,9 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
     setEditingRowIndex(rowIndex);
   }
 
-  function saveRowEdit(values) {
+  async function saveRowEdit(values) {
     const editingRow = recalculatedRows[editingRowIndex];
-    updateAccount(
+    const saved = await updateAccount(
       {
         ...account,
         rows: recalculateSavingsRows(account.rows.map((row, itemIndex) =>
@@ -136,7 +136,7 @@ export function SavingsAccount({ account, data, index, saveSavings }) {
       },
       "Ahorro editado en Supabase",
     );
-    setEditingRowIndex(null);
+    if (saved) setEditingRowIndex(null);
   }
 
   function deleteRow(rowIndex) {

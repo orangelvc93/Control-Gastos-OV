@@ -12,23 +12,23 @@ export function EditableBudgetList({ allowInterest = false, items, onSave, title
   const [form, setForm] = useState({ description: '', amount: '', useFixedAmount: false, isInterest: false });
   const [editingIndex, setEditingIndex] = useState(null);
 
-  function addItem(event) {
+  async function addItem(event) {
     event.preventDefault();
-    onSave([...items, { appId: createAppId('budget-item'), description: form.description, amount: toNumber(form.amount), useFixedAmount: form.useFixedAmount, ...(allowInterest ? { isInterest: form.isInterest } : {}) }]);
-    setForm({ description: '', amount: '', useFixedAmount: false, isInterest: false });
+    const saved = await onSave([...items, { appId: createAppId('budget-item'), description: form.description, amount: toNumber(form.amount), useFixedAmount: form.useFixedAmount, ...(allowInterest ? { isInterest: form.isInterest } : {}) }]);
+    if (saved) setForm({ description: '', amount: '', useFixedAmount: false, isInterest: false });
   }
 
   function editItem(index) {
     setEditingIndex(index);
   }
 
-  function saveEdit(values) {
-    onSave(items.map((item, itemIndex) => (
+  async function saveEdit(values) {
+    const saved = await onSave(items.map((item, itemIndex) => (
       itemIndex === editingIndex
         ? { ...item, description: values.description, amount: toNumber(values.amount), useFixedAmount: Boolean(values.useFixedAmount), ...(allowInterest ? { isInterest: Boolean(values.isInterest) } : {}) }
         : item
     )));
-    setEditingIndex(null);
+    if (saved) setEditingIndex(null);
   }
 
   function deleteItem(index) {

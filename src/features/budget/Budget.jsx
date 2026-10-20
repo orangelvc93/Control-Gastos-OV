@@ -39,13 +39,12 @@ export function Budget({ budgetWithInterest, budgetWithoutInterest, data, distri
     return saveData(withBudgetRecurring(data, fixedBudget), message);
   }
 
-  function saveDistribution(values) {
+  async function saveDistribution(values) {
     const distribution = normalizeDistribution(data.fixedBudget.distribution).map((item) => (
       item.description === editingDistribution.description ? { ...item, destination: values.destination } : item
     ));
 
-    saveBudget({ ...data.fixedBudget, distribution }, 'Distribucion actualizada');
-    setEditingDistribution(null);
+    if (await saveBudget({ ...data.fixedBudget, distribution }, 'Distribucion actualizada')) setEditingDistribution(null);
   }
 
   return (

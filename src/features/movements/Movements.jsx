@@ -43,7 +43,7 @@ export function Movements({
     const { collection, row } = editingMovement;
     const sourceKey = collection === 'payments' ? 'category' : 'source';
 
-    await updateCollection(
+    const saved = await updateCollection(
       collection,
       (items) => items.map((item, index) => (
         index === row.index
@@ -62,7 +62,7 @@ export function Movements({
       )),
       'Movimiento editado en Supabase',
     );
-    setEditingMovement(null);
+    if (saved) setEditingMovement(null);
   }
 
   function deleteMovement(collection, row) {

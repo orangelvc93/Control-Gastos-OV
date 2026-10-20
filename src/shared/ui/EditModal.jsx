@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from './Button';
 import { DateInput, NumberInput, Select, TextInput } from './FormControls';
 
+// initialValues solo se lee al abrir: el modal se monta de nuevo en cada edición,
+// así un re-render del padre no borra lo que el usuario está escribiendo.
 export function EditModal({ fields, initialValues, onClose, onSave, title }) {
   const [form, setForm] = useState(initialValues);
-
-  useEffect(() => {
-    setForm(initialValues);
-  }, [initialValues]);
 
   function submit(event) {
     event.preventDefault();

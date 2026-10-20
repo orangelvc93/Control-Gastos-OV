@@ -15,7 +15,9 @@ export function useAuth(startProcessing = () => () => {}) {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const nextUser = session?.user ?? null;
+      // Al refrescar el token llega un objeto nuevo del mismo usuario: se conserva el anterior para no recargar la app.
+      setUser((current) => (current?.id === nextUser?.id ? current : nextUser));
       setIsAuthenticated(Boolean(session?.user));
     });
 

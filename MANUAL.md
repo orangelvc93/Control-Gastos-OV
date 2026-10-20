@@ -2,92 +2,35 @@
 
 ## Inicio de sesion
 
-La aplicacion abre con una pantalla de acceso.
-
-Credenciales iniciales:
-
-- Usuario: `orangelvc93`
-- Contrasena: `123456`
-
-Para cambiar las credenciales edita:
-
-`public/auth-config.json`
-
-Ejemplo:
-
-```json
-{
-  "username": "nuevo_usuario",
-  "password": "nueva_contrasena"
-}
-```
-
-Nota: este login protege el acceso casual al frontend local. No reemplaza una autenticacion de servidor para publicar la app en internet.
+El acceso usa Supabase Auth (email y contraseña). Los usuarios se crean desde el panel de Supabase: **Authentication → Users**, y una contraseña olvidada también se cambia desde ese panel.
 
 ## Ejecutar la aplicacion
 
-Desde la carpeta del proyecto:
+1. Copia `.env.example` a `.env` y completa `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+2. Desde la carpeta del proyecto:
 
 ```powershell
+npm install
 npm run dev
 ```
 
-Servicios:
+La web queda en `http://localhost:5174/`.
 
-- Web: `http://localhost:5173/`
-- API JSON: `http://localhost:3002/api/data`
+## Base de datos
 
-## Base de datos JSON
+Los datos viven en Supabase (PostgreSQL). El esquema completo está en `supabase/schema.sql`; cada tabla tiene RLS para que cada usuario solo vea sus datos.
 
-El archivo principal esta en:
-
-`db/years/<año>.json`
-
-Cada cambio realizado desde la web se guarda automaticamente en el JSON.
+Un workflow de GitHub (`.github/workflows/supabase-keepalive.yml`) llama a diario a la base para que el plan gratuito no la pause por inactividad.
 
 ## Años
 
-La app permite trabajar con varios años.
-
-Uso:
-
 - Selecciona el año desde el selector de la cabecera.
 - Presiona `Nuevo año` para crear un año nuevo.
-- Al crear un año se genera un JSON nuevo en blanco.
-- Cada año se guarda separado en `db/years/YYYY.json`.
+- Cambiar de año cambia toda la información visible de la app.
 
-Ejemplo:
+## Historial de cambios
 
-```text
-db/years/2026.json
-db/years/2027.json
-```
-
-Cambiar de año cambia toda la información visible de la app.
-
-Secciones principales:
-
-- `months`: meses disponibles.
-- `payments`: pagos recurrentes y variables.
-- `income`: ingresos.
-- `debts`: prestamos y cuotas.
-- `savings`: cuentas y movimientos de ahorro.
-- `fixedBudget.expenses`: gastos presupuestados.
-- `fixedBudget.income`: ingresos presupuestados.
-- `fixedBudget.distribution`: porcentajes sugeridos.
-- `journal`: historial de cambios.
-
-## Journal
-
-La propiedad `journal` registra los cambios hechos desde la app.
-
-Campos:
-
-- `Fecha`: momento del cambio.
-- `Accion`: operacion realizada.
-- `Detalle`: informacion asociada al cambio.
-
-Sirve para revisar eliminaciones, ediciones y registros agregados.
+Cada guardado agrega un registro (fecha, acción y detalle) a la tabla `journal`. Sirve para revisar eliminaciones, ediciones y registros agregados.
 
 ## Dashboard
 
@@ -199,23 +142,3 @@ El recorrido explica:
 - Area de trabajo.
 - Boton de ayuda.
 
-## Plantilla en blanco
-
-La carpeta `Control de Gastos - Plantilla` contiene una copia limpia del proyecto.
-
-Incluye:
-
-- Mismo codigo de la app.
-- Mismo login configurable.
-- Mismo recorrido de ayuda.
-- JSON en blanco en `db/data.json`.
-
-Para probarla:
-
-```powershell
-cd "C:\Users\orangel.valdespino\Desktop\Control de Gastos - Plantilla"
-npm install
-npm run dev
-```
-
-No ejecutes al mismo tiempo la app original y la plantilla porque usan los mismos puertos locales.

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { emptyDebt } from '../../shared/lib/finance';
 import { money } from '../../shared/lib/money';
 import { sum, toNumber } from '../../shared/lib/numbers';
@@ -18,6 +18,36 @@ const debtFields = [
   ['currentInstallment', 'Cuotas pagadas', 'number'],
 ];
 
+// Guarda al salir del campo o con Enter, no en cada tecla: cada guardado reescribe todo el año.
+function InstallmentInput({ debt, onCommit }) {
+  const [value, setValue] = useState(String(debt.currentInstallment));
+
+  useEffect(() => {
+    setValue(String(debt.currentInstallment));
+  }, [debt.currentInstallment]);
+
+  function commit() {
+    const next = toNumber(value);
+    if (next !== debt.currentInstallment) onCommit(next);
+  }
+
+  return (
+    <input
+      className="mini-input"
+      type="number"
+      min="0"
+      max={debt.totalInstallments}
+      aria-label={`Cuotas pagadas de ${debt.loan}`}
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+      }}
+    />
+  );
+}
+
 export function Debts({ data, debts, saveData }) {
   const [form, setForm] = useState(emptyDebt());
   const [editingDebt, setEditingDebt] = useState(null);
@@ -27,9 +57,9 @@ export function Debts({ data, debts, saveData }) {
     return saveData({ ...data, debts: debtsNext }, message);
   }
 
-  function addDebt(event) {
+  async function addDebt(event) {
     event.preventDefault();
-    saveDebts([
+    const saved = await saveDebts([
       ...data.debts,
       {
         ...form,
@@ -41,19 +71,19 @@ export function Debts({ data, debts, saveData }) {
         archived: false,
       },
     ], 'Deuda creada en Supabase');
-    setForm(emptyDebt());
+    if (saved) setForm(emptyDebt());
   }
 
   function updateDebt(index, patch, message) {
-    saveDebts(data.debts.map((debt, itemIndex) => (itemIndex === index ? { ...debt, ...patch } : debt)), message);
+    return saveDebts(data.debts.map((debt, itemIndex) => (itemIndex === index ? { ...debt, ...patch } : debt)), message);
   }
 
   function editDebt(debt) {
     setEditingDebt(debt);
   }
 
-  function saveDebtEdit(values) {
-    updateDebt(editingDebt.index, {
+  async function saveDebtEdit(values) {
+    const saved = await updateDebt(editingDebt.index, {
       loan: values.loan,
       description: values.description,
       total: toNumber(values.total),
@@ -63,7 +93,7 @@ export function Debts({ data, debts, saveData }) {
       interest: values.interest,
       monthValue: values.monthValue === '' ? null : toNumber(values.monthValue),
     }, 'Deuda editada en Supabase');
-    setEditingDebt(null);
+    if (saved) setEditingDebt(null);
   }
 
   function archiveDebt(debt) {
@@ -118,13 +148,9 @@ export function Debts({ data, debts, saveData }) {
             { content: money.format(debt.monthlyPayment), filterValue: debt.monthlyPayment },
             {
               content: (
-                <input
-                  className="mini-input"
-                  type="number"
-                  min="0"
-                  max={debt.totalInstallments}
-                  value={debt.currentInstallment}
-                  onChange={(event) => updateDebt(debt.index, { currentInstallment: toNumber(event.target.value) }, 'Cuota pagada actualizada')}
+                <InstallmentInput
+                  debt={debt}
+                  onCommit={(currentInstallment) => updateDebt(debt.index, { currentInstallment }, 'Cuota pagada actualizada')}
                 />
               ),
               filterValue: debt.currentInstallment,

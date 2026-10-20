@@ -1,30 +1,40 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import seedData from '../data.json';
 import { supabase } from '../api/supabaseClient';
 import { createYearForUser, fetchYearsForUser, loadYearData, resetYearData, saveYearData } from '../api/yearDataApi';
-import { exportFinanceBook } from '../shared/lib/exportExcel';
 import { buildDateFromParts, getDateDay } from '../shared/lib/date';
-import { buildDistributionRows, emptyIncome, emptyPayment, finalSaving, hydrateDebt, recalculateSavingsRows, withJournal } from '../shared/lib/finance';
+import { buildDistributionRows, calendarMonths, emptyIncome, emptyPayment, finalSaving, hydrateDebt, recalculateSavingsRows, withJournal } from '../shared/lib/finance';
 import { sum, toNumber } from '../shared/lib/numbers';
+
+const currentMonth = calendarMonths[new Date().getMonth()];
 
 export function useFinanceBook(user, startProcessing = () => () => {}) {
   const [data, setData] = useState(seedData);
   const [years, setYears] = useState([String(new Date().getFullYear())]);
   const [activeYear, setActiveYear] = useState(String(new Date().getFullYear()));
   const [syncStatus, setSyncStatus] = useState('Conectando con Supabase...');
-  const [selectedMonth, setSelectedMonth] = useState('Mayo');
-  const [paymentForm, setPaymentForm] = useState(emptyPayment('Mayo'));
-  const [incomeForm, setIncomeForm] = useState(emptyIncome('Mayo'));
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [paymentForm, setPaymentForm] = useState(emptyPayment(currentMonth));
+  const [incomeForm, setIncomeForm] = useState(emptyIncome(currentMonth));
+  const userId = user?.id;
+  const dataRef = useRef(data);
+  const activeYearRef = useRef(activeYear);
+  const saveQueue = useRef(Promise.resolve());
+  const pendingSaves = useRef(0);
+
+  dataRef.current = data;
+  activeYearRef.current = activeYear;
+
+  // Depende de userId y no de user: al refrescar el token Supabase entrega un objeto nuevo del mismo usuario.
+  useEffect(() => {
+    if (!userId) return;
+    fetchYears(userId);
+  }, [userId]);
 
   useEffect(() => {
-    if (!user) return;
-    fetchYears(user.id);
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    fetchData(activeYear, user.id);
-  }, [activeYear, user]);
+    if (!userId) return;
+    fetchData(activeYear, userId);
+  }, [activeYear, userId]);
 
   const monthlySummary = useMemo(() => data.months.map((month) => {
     const payments = sum(data.payments.filter((item) => item.month === month && item.status === 'Pagado'), (item) => item.amount);
@@ -103,18 +113,45 @@ export function useFinanceBook(user, startProcessing = () => () => {}) {
     });
   }
 
-  async function saveData(nextData, message, detail = '') {
-    if (!user) return;
-    return runProcess(async () => {
-      const journaledData = withJournal(nextData, message, detail);
+  // Los guardados se encolan para que nunca se ejecuten en paralelo y el estado local se actualiza
+  // al instante, así la siguiente acción parte de los datos ya modificados. Devuelve true si se guardó.
+  function saveData(nextData, message, detail = '') {
+    if (!user) return Promise.resolve(false);
+    const year = activeYear;
+    const ownerId = user.id;
+    const journaledData = withJournal(nextData, message, detail);
+    const previousData = dataRef.current;
+    dataRef.current = journaledData;
+    setData(journaledData);
+    pendingSaves.current += 1;
+
+    const reloadIfCurrent = async () => {
+      const freshData = await loadYearData(supabase, ownerId, year);
+      if (activeYearRef.current === year) setData(freshData);
+    };
+
+    const task = saveQueue.current.then(() => runProcess(async () => {
       try {
-        await saveYearData(supabase, user.id, activeYear, journaledData);
-        setData(await loadYearData(supabase, user.id, activeYear));
+        await saveYearData(supabase, ownerId, year, journaledData);
+        if (pendingSaves.current === 1) await reloadIfCurrent();
         setSyncStatus(message);
+        return true;
       } catch (error) {
         setSyncStatus(`No se pudo guardar: ${error.message}`);
+        // Sin conexión la recarga también falla: se deshace el cambio local para no mostrar datos que no se guardaron.
+        if (pendingSaves.current === 1 && activeYearRef.current === year) {
+          dataRef.current = previousData;
+          setData(previousData);
+        }
+        await reloadIfCurrent().catch(() => {});
+        return false;
+      } finally {
+        pendingSaves.current -= 1;
       }
-    });
+    }));
+
+    saveQueue.current = task.catch(() => false);
+    return task;
   }
 
   async function resetData() {
@@ -158,9 +195,8 @@ export function useFinanceBook(user, startProcessing = () => () => {}) {
       date: buildDateFromParts(activeYear, paymentForm.month, getDateDay(paymentForm.date)),
       amount: toNumber(paymentForm.amount),
     };
-    const nextData = { ...data, payments: [...data.payments, nextPayment] };
-    await saveData(nextData, 'Pago guardado en Supabase', paymentForm);
-    setPaymentForm(emptyPayment(selectedMonth));
+    const nextData = { ...dataRef.current, payments: [...dataRef.current.payments, nextPayment] };
+    if (await saveData(nextData, 'Pago guardado en Supabase', paymentForm)) setPaymentForm(emptyPayment(selectedMonth));
   }
 
   async function addIncome(event) {
@@ -170,25 +206,25 @@ export function useFinanceBook(user, startProcessing = () => () => {}) {
       date: buildDateFromParts(activeYear, incomeForm.month, getDateDay(incomeForm.date)),
       amount: toNumber(incomeForm.amount),
     };
-    const nextData = { ...data, income: [...data.income, nextIncome] };
-    await saveData(nextData, 'Ganancia guardada en Supabase', incomeForm);
-    setIncomeForm(emptyIncome(selectedMonth));
+    const nextData = { ...dataRef.current, income: [...dataRef.current.income, nextIncome] };
+    if (await saveData(nextData, 'Ganancia guardada en Supabase', incomeForm)) setIncomeForm(emptyIncome(selectedMonth));
   }
 
-  async function updateCollection(collection, updater, message, detail = '') {
-    const nextData = { ...data, [collection]: updater(data[collection]) };
-    await saveData(nextData, message, detail);
+  function updateCollection(collection, updater, message, detail = '') {
+    const current = dataRef.current;
+    return saveData({ ...current, [collection]: updater(current[collection]) }, message, detail);
   }
 
+  // xlsx pesa ~400 kB: se descarga solo al exportar.
   function exportExcel() {
-    const stopProcessing = startProcessing();
-    window.setTimeout(() => {
+    return runProcess(async () => {
       try {
+        const { exportFinanceBook } = await import('../shared/lib/exportExcel');
         exportFinanceBook({ activeYear, data, debtRows, distributionWithInterest, distributionWithoutInterest, monthlySummary });
-      } finally {
-        stopProcessing();
+      } catch (error) {
+        setSyncStatus(`No se pudo exportar: ${error.message}`);
       }
-    }, 0);
+    });
   }
 
   return {

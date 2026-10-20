@@ -41,13 +41,18 @@ function monthCyclePosition(month, startMonth) {
   return (monthIndex - startIndex + calendarMonths.length) % calendarMonths.length;
 }
 
+// Number(null) es 0: sin este paso las filas sin posición se ordenaban primero como "Orden 0".
+function toPosition(value) {
+  return value === null || value === undefined || value === '' ? NaN : Number(value);
+}
+
 function sortSavingsRows(rows = []) {
   const startMonth = rows[0]?.month;
   return rows
     .map((row, index) => ({ row, index }))
     .sort((left, right) => {
-      const leftOrder = Number(left.row.position);
-      const rightOrder = Number(right.row.position);
+      const leftOrder = toPosition(left.row.position);
+      const rightOrder = toPosition(right.row.position);
 
       if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder) && leftOrder !== rightOrder) return leftOrder - rightOrder;
       if (Number.isFinite(leftOrder) !== Number.isFinite(rightOrder)) return Number.isFinite(leftOrder) ? -1 : 1;
@@ -70,7 +75,7 @@ export function recalculateSavingsRows(rows = []) {
       {
         ...row,
         appId: row.appId ?? createAppId('saving-entry'),
-        position: Number.isFinite(Number(row.position)) ? Number(row.position) : index + 1,
+        position: Number.isFinite(toPosition(row.position)) ? toPosition(row.position) : index + 1,
         initial,
         deposit: row.deposit === null || row.deposit === '' ? null : toNumber(row.deposit),
         withdrawal: row.withdrawal === null || row.withdrawal === '' ? null : toNumber(row.withdrawal),
