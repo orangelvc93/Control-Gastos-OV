@@ -8,6 +8,8 @@ tags: [referencia]
 2. **Notificación push** (la app instalada como PWA).
 3. **Bot de Telegram.**
 
+Implementado (2026-10-20): campana con filtro por tipo (Frecuentes, Tarjetas, Mes), Telegram (`fase2_automatizacion.sql`) y push del navegador (`fase2b_push.sql` + función `supabase/functions/push`). El push se activa por dispositivo en **Gestión → Avisos y Telegram**; en iPhone requiere la app agregada a la pantalla de inicio. A las 06:00 se envían los avisos sin leer de las últimas 24 h (hasta 3 sueltos; más, un resumen).
+
 Push y Telegram son copias del aviso guardado: si alguno no llega, el aviso sigue disponible en la app. Las alertas se generan en el servidor, en la misma tarea diaria que crea los [[Movimientos recurrentes]], y nunca se duplican (una por evento).
 
 | Alerta | Cuándo | Módulo |

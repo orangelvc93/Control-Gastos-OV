@@ -203,12 +203,15 @@ export function AppShell({ user, onLogout }) {
         <TransactionSheet
           existing={sheet.existing}
           confirm={sheet.confirm}
+          recurringItem={sheet.existing?.recurringId ? ledger.recurring.find((item) => item.id === sheet.existing.recurringId) : undefined}
           defaults={sheet.defaults}
           accounts={ledger.accounts}
           categories={ledger.categories}
           onSave={ledger.actions.saveTransaction}
+          onSaveFollowing={ledger.actions.saveTransactionAndFollowing}
           onReplace={ledger.actions.replaceTransaction}
           onTrash={ledger.actions.trashTransaction}
+          onTrashFollowing={ledger.actions.trashTransactionAndFollowing}
           onClose={() => setSheet(null)}
         />
       )}

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
+import { disablePush, enablePush, needsInstallForPush, pushState, sendPushTest } from '../../api/pushApi';
+import { supabase } from '../../api/supabaseClient';
 import { Field } from '../ui/Field';
 import { Icon } from '../ui/Icon';
+import { useNotify } from '../ui/Toast';
 
 function timeAgo(iso) {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -11,11 +14,27 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString('es-EC', { day: 'numeric', month: 'short' });
 }
 
+// El tipo de aviso empieza por su módulo: frecuente-registrado, tarjeta-pago, mes-negativo…
+const noticeGroups = [
+  ['frecuente', 'Frecuentes'],
+  ['tarjeta', 'Tarjetas'],
+  ['mes', 'Mes'],
+];
+
+function groupOf(kind) {
+  const prefix = String(kind).split('-')[0];
+  return noticeGroups.some(([key]) => key === prefix) ? prefix : 'otros';
+}
+
 export function NotificationsPage({ ledger, navigate }) {
   const { notifications, actions } = ledger;
   const unreadIds = notifications.filter((item) => !item.readAt).map((item) => item.id);
   // Lo que se ve al abrir queda marcado como leído; se muestra resaltado mientras estés aquí.
   const [freshIds] = useState(() => new Set(unreadIds));
+  const [group, setGroup] = useState('todos');
+  const present = new Set(notifications.map((item) => groupOf(item.kind)));
+  const groups = [['todos', 'Todos'], ...noticeGroups.filter(([key]) => present.has(key)), ...(present.has('otros') ? [['otros', 'Otros']] : [])];
+  const visible = group === 'todos' ? notifications : notifications.filter((item) => groupOf(item.kind) === group);
 
   useEffect(() => {
     if (unreadIds.length) actions.markNotificationsRead(unreadIds);
@@ -29,10 +48,19 @@ export function NotificationsPage({ ledger, navigate }) {
         <h1>Avisos</h1>
         <button type="button" className="btn btn-secondary btn-small" onClick={actions.checkNow}>Revisar ahora</button>
       </div>
+      {groups.length > 2 && (
+        <div className="chips" role="group" aria-label="Filtrar avisos">
+          {groups.map(([key, label]) => (
+            <button key={key} type="button" className={`chip ${group === key ? 'is-active' : ''}`} aria-pressed={group === key} onClick={() => setGroup(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       <section className="card">
-        {notifications.length ? (
+        {visible.length ? (
           <ul className="notice-list">
-            {notifications.map((item) => (
+            {visible.map((item) => (
               <li key={item.id} className={freshIds.has(item.id) ? 'is-new' : ''}>
                 <button type="button" className="notice" onClick={() => navigate(item.link || '/')}>
                   <span className="notice-dot" aria-hidden="true" />
@@ -51,6 +79,79 @@ export function NotificationsPage({ ledger, navigate }) {
       </section>
       <button type="button" className="link" onClick={() => navigate('/ajustes')}>Configurar avisos y Telegram</button>
     </div>
+  );
+}
+
+const pushStateText = {
+  activo: 'Activadas en este dispositivo.',
+  inactivo: 'Desactivadas en este dispositivo.',
+  bloqueado: 'Bloqueadas: el navegador no deja mostrar notificaciones. Actívalas en los ajustes del sitio (candado junto a la dirección) y vuelve aquí.',
+  'no-disponible': 'Este navegador no admite notificaciones push.',
+};
+
+// Cada dispositivo se activa por separado (celular, computadora…).
+function PushSection({ onTested }) {
+  const notify = useNotify();
+  const [state, setState] = useState('cargando');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    pushState().then(setState, () => setState('no-disponible'));
+  }, []);
+
+  async function attempt(task, success) {
+    setBusy(true);
+    try {
+      const result = await task();
+      if (success) notify(typeof success === 'function' ? success(result) : success);
+    } catch (error) {
+      notify(error.message || 'No se pudo completar.', 'error');
+    }
+    setState(await pushState().catch(() => 'no-disponible'));
+    setBusy(false);
+  }
+
+  const install = needsInstallForPush();
+
+  return (
+    <>
+      <h2>Notificaciones en este dispositivo</h2>
+      {install ? (
+        <p className="alert alert-info">
+          En iPhone o iPad primero agrega la app a la pantalla de inicio (Compartir → Agregar a inicio) y ábrela desde ese icono; ahí aparecerá el botón para activarlas.
+        </p>
+      ) : (
+        <>
+          <p className="form-hint" role="status">{state === 'cargando' ? 'Revisando…' : pushStateText[state]}</p>
+          <div className="hero-actions">
+            {state === 'inactivo' && (
+              <button type="button" className="btn btn-primary" disabled={busy} onClick={() => attempt(() => enablePush(supabase), 'Notificaciones activadas en este dispositivo')}>
+                Activar notificaciones
+              </button>
+            )}
+            {state === 'activo' && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={busy}
+                  onClick={() => attempt(async () => {
+                    const result = await sendPushTest(supabase);
+                    await onTested();
+                    return result;
+                  }, (result) => (result.sent ? 'Notificación de prueba enviada' : 'No llegó a ningún dispositivo; desactiva y vuelve a activar.'))}
+                >
+                  Enviar prueba
+                </button>
+                <button type="button" className="btn btn-ghost-danger" disabled={busy} onClick={() => attempt(() => disablePush(supabase), 'Notificaciones desactivadas en este dispositivo')}>
+                  Desactivar
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
@@ -102,6 +203,8 @@ export function SettingsPage({ ledger, navigate }) {
           </Field>
         </div>
 
+        <PushSection onTested={ledger.reload} />
+
         <h2>Telegram</h2>
         <ol className="steps">
           <li>En Telegram, abre <strong>@BotFather</strong>, envía <code>/newbot</code> y sigue los pasos. Te dará un <strong>token</strong>.</li>
@@ -125,7 +228,7 @@ export function SettingsPage({ ledger, navigate }) {
           <button type="submit" className="btn btn-primary" disabled={busy} aria-busy={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
           <button type="button" className="btn btn-secondary" onClick={actions.sendTelegramTest}>Enviar prueba</button>
         </div>
-        <p className="form-hint">Los avisos se revisan cada día a las 06:00 (Ecuador) y al abrir la app. Siempre quedan también en la campana.</p>
+        <p className="form-hint">Los avisos se revisan cada día a las 06:00 (Ecuador) y al abrir la app; a esa hora se envían también las notificaciones y Telegram. Siempre quedan en la campana.</p>
       </form>
     </div>
   );

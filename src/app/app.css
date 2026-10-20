@@ -1431,6 +1431,14 @@
 .segment-ingreso.is-active { box-shadow: inset 0 -2px 0 var(--c-positive); }
 .segment-transferencia.is-active { box-shadow: inset 0 -2px 0 var(--c-accent); }
 
+.apply-scope .segmented {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.apply-scope .form-hint {
+  margin: 0;
+}
+
 /* Hoja / diálogo ------------------------------------------------------ */
 
 .sheet {

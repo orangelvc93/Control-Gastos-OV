@@ -4,6 +4,12 @@ export function today() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+export function addDays(date, days) {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(year, month - 1, day + days);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+}
+
 const monthNames = [
   'enero',
   'febrero',

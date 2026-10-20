@@ -24,13 +24,14 @@ App nueva, primero para celular y como **web app instalable (PWA)**:
 - `supabase/fase2_automatizacion.sql`: tarea diaria `control-gastos-diario` (pg_cron, 06:00 Ecuador) + al abrir la app.
 - Frecuentes con **monto fijo** → se registran confirmados; **variables** → pendientes ("Por confirmar" en Inicio).
 - Avisos en la campana (`notifications`): frecuente registrado, próximos (N días), pago de tarjeta por vencer, uso alto del cupo, gastos > ingresos del mes. Ajustes en **Avisos y Telegram**.
-- Telegram vía `pg_net`; el token del bot va en el Vault (`telegram_bot_token`). Push del navegador: pendiente.
+- Telegram vía `pg_net`; el token del bot va en el Vault (`telegram_bot_token`).
+- **Push del navegador**: `supabase/fase2b_push.sql` (suscripciones por dispositivo, envío en la tarea diaria) y la función del servidor `supabase/functions/push` (desplegada desde el panel de Supabase, con "Verify JWT" desactivado: ella misma valida la sesión o la clave de la tarea). Las claves VAPID las genera la función y quedan en `push_config`, que solo lee el servidor.
+- Avisos filtrables por tipo; al editar o eliminar un registro de un frecuente se elige **solo este / este y los siguientes**.
 - **Dashboard** con gráficas (ingresos vs gastos por mes, patrimonio neto, gastos/ingresos por categoría, saldo por cuenta, uso de tarjetas), periodos y vista de tabla.
 - Campo de fecha escribible en el celular (dd/mm/aaaa + Hoy/Ayer + calendario).
 - Regla: un movimiento con fecha anterior al saldo inicial de su cuenta no cambia el saldo (app y vista `account_balances`).
 
 ## Pendiente según la [[Hoja de ruta]]
-- Fase 2: notificaciones push del navegador (PWA).
 - Fase 3: [[Créditos y préstamos]], diferidos y estado de cuenta de [[Tarjetas de crédito]], [[Plan para salir de deudas]].
 - Fase 4: [[Intereses]] calculados, [[Plan de ahorro]] 50/30/20, [[Metas de ahorro]].
 - Fase 5: [[Facturas y gastos deducibles]], [[Reportes y exportación]], [[Exportación para el SRI]].

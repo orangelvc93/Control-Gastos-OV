@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../api/supabaseClient';
 import * as api from '../api/ledgerApi';
+import { addDays } from '../shared/lib/date';
 import { balancesById } from '../shared/lib/ledger';
 
 // Justo después de iniciar sesión o renovar el token, el servidor de datos de Supabase puede tener el reloj
@@ -71,71 +72,107 @@ export function useLedger(userId, notify) {
 
   const balances = useMemo(() => balancesById(ledger.accounts, ledger.transactions), [ledger]);
 
-  const actions = useMemo(() => ({
-    saveTransaction: (values, existing) => run(() => {
+  // Registros del mismo frecuente con fecha posterior (una fila por transferencia: la de salida).
+  const laterOccurrences = useCallback((existing) => ledger.transactions.filter((transaction) => (
+    transaction.recurringId === existing.recurringId
+    && transaction.occurrenceDate > existing.occurrenceDate
+    && !transaction.deletedAt
+    && !(transaction.transferId && transaction.cents > 0)
+  )), [ledger.transactions]);
+
+  const actions = useMemo(() => {
+    function saveOne(values, existing) {
       if (values.kind === 'transferencia') {
         return existing?.transferId
           ? api.updateTransfer(supabase, existing.transferId, values)
           : api.createTransfer(supabase, values);
       }
       return existing ? api.updateTransaction(supabase, existing.id, values) : api.createTransaction(supabase, values);
-    }, existing ? 'Movimiento actualizado' : 'Movimiento guardado'),
-    // Cambiar un movimiento normal a transferencia (o al revés) no se puede editar en sitio: se reemplaza.
-    replaceTransaction: (values, existing) => run(async () => {
-      if (values.kind === 'transferencia') await api.createTransfer(supabase, values);
-      else await api.createTransaction(supabase, values);
-      await api.moveToTrash(supabase, existing);
-    }, 'Movimiento actualizado'),
-    trashTransaction: (transaction) => run(() => api.moveToTrash(supabase, transaction), 'Movimiento enviado a la papelera'),
-    restoreTransaction: (transaction) => run(() => api.restoreFromTrash(supabase, transaction), 'Movimiento restaurado'),
-    deleteForever: (transaction) => run(() => api.deleteForever(supabase, transaction), 'Movimiento eliminado definitivamente'),
-    saveAccount: (values, existing) => run(
-      () => (existing ? api.updateAccount(supabase, existing.id, values) : api.createAccount(supabase, values)),
-      existing ? 'Cuenta actualizada' : 'Cuenta creada',
-    ),
-    archiveAccount: (account, archived) => run(() => api.setAccountArchived(supabase, account.id, archived), archived ? 'Cuenta archivada' : 'Cuenta reactivada'),
-    saveCategory: (values, existing) => run(
-      () => (existing ? api.updateCategory(supabase, existing.id, values) : api.createCategory(supabase, values)),
-      existing ? 'Categoría actualizada' : 'Categoría creada',
-    ),
-    // Cambiar un frecuente afecta solo a las próximas fechas; lo ya registrado no se toca.
-    saveRecurring: (values, existing) => run(
-      async () => {
-        await (existing ? api.updateRecurring(supabase, existing.id, values) : api.createRecurring(supabase, values));
-        await api.runMyDailyJobs(supabase);
+    }
+
+    return {
+      saveTransaction: (values, existing) => run(() => saveOne(values, existing), existing ? 'Movimiento actualizado' : 'Movimiento guardado'),
+      // "Este y los siguientes": el frecuente toma el monto, las cuentas y la categoría nuevos,
+      // y también se corrigen los registros posteriores que ya existan (cada uno conserva su fecha, estado y notas).
+      saveTransactionAndFollowing: (values, existing, item) => run(async () => {
+        await saveOne(values, existing);
+        await api.updateRecurring(supabase, item.id, {
+          ...item,
+          cents: Math.abs(values.cents),
+          accountId: values.accountId,
+          toAccountId: values.toAccountId,
+          categoryId: values.categoryId,
+        });
+        for (const later of laterOccurrences(existing)) {
+          const own = { date: later.date, status: later.status, description: later.description, note: later.note };
+          await saveOne({ ...values, ...own }, later.transferId ? later : { id: later.id });
+        }
+      }, 'Actualizado este registro y los siguientes'),
+      // "Este y los siguientes" al eliminar: van a la papelera y el frecuente termina el día anterior.
+      trashTransactionAndFollowing: (existing, item) => run(async () => {
+        await api.moveToTrash(supabase, existing);
+        for (const later of laterOccurrences(existing)) await api.moveToTrash(supabase, later);
+        const endDate = addDays(existing.occurrenceDate, -1);
+        if (endDate < item.startDate) await api.setRecurringArchived(supabase, item.id, true);
+        else await api.updateRecurring(supabase, item.id, { ...item, endDate });
+      }, `Eliminados este y los siguientes; «${item.name}» ya no se registrará más`),
+      // Cambiar un movimiento normal a transferencia (o al revés) no se puede editar en sitio: se reemplaza.
+      replaceTransaction: (values, existing) => run(async () => {
+        if (values.kind === 'transferencia') await api.createTransfer(supabase, values);
+        else await api.createTransaction(supabase, values);
+        await api.moveToTrash(supabase, existing);
+      }, 'Movimiento actualizado'),
+      trashTransaction: (transaction) => run(() => api.moveToTrash(supabase, transaction), 'Movimiento enviado a la papelera'),
+      restoreTransaction: (transaction) => run(() => api.restoreFromTrash(supabase, transaction), 'Movimiento restaurado'),
+      deleteForever: (transaction) => run(() => api.deleteForever(supabase, transaction), 'Movimiento eliminado definitivamente'),
+      saveAccount: (values, existing) => run(
+        () => (existing ? api.updateAccount(supabase, existing.id, values) : api.createAccount(supabase, values)),
+        existing ? 'Cuenta actualizada' : 'Cuenta creada',
+      ),
+      archiveAccount: (account, archived) => run(() => api.setAccountArchived(supabase, account.id, archived), archived ? 'Cuenta archivada' : 'Cuenta reactivada'),
+      saveCategory: (values, existing) => run(
+        () => (existing ? api.updateCategory(supabase, existing.id, values) : api.createCategory(supabase, values)),
+        existing ? 'Categoría actualizada' : 'Categoría creada',
+      ),
+      // Cambiar un frecuente afecta solo a las próximas fechas; lo ya registrado no se toca.
+      saveRecurring: (values, existing) => run(
+        async () => {
+          await (existing ? api.updateRecurring(supabase, existing.id, values) : api.createRecurring(supabase, values));
+          await api.runMyDailyJobs(supabase);
+        },
+        existing ? 'Frecuente actualizado (aplica a las próximas fechas)' : 'Frecuente creado',
+      ),
+      markNotificationsRead: async (ids) => {
+        try {
+          await api.markNotificationsRead(supabase, ids);
+          await reload();
+        } catch {
+          // Marcar como leído no es crítico: se reintenta la próxima vez.
+        }
       },
-      existing ? 'Frecuente actualizado (aplica a las próximas fechas)' : 'Frecuente creado',
-    ),
-    markNotificationsRead: async (ids) => {
-      try {
-        await api.markNotificationsRead(supabase, ids);
-        await reload();
-      } catch {
-        // Marcar como leído no es crítico: se reintenta la próxima vez.
-      }
-    },
-    saveSettings: (values) => run(() => api.saveSettings(supabase, userId, values), 'Ajustes guardados'),
-    checkNow: () => run(async () => {
-      const result = await api.runMyDailyJobs(supabase);
-      notify(`Revisión hecha: ${result.registrados} registrado(s), ${result.avisos} aviso(s) nuevo(s).`);
-    }),
-    sendTelegramTest: async () => {
-      try {
-        const result = await withClockRetry(() => api.sendTelegramTest(supabase));
-        const messages = {
-          enviado: 'Mensaje de prueba enviado. Revisa Telegram.',
-          'sin-token': 'Falta guardar el token del bot en Supabase (paso 2).',
-          'sin-chat': 'Guarda primero tu chat ID y activa Telegram.',
-        };
-        notify(messages[result] ?? result, result === 'enviado' ? 'success' : 'error');
-        await reload();
-      } catch (error) {
-        notify(`No se pudo enviar: ${friendlyError(error)}`, 'error');
-      }
-    },
-    archiveRecurring: (item, archived) => run(() => api.setRecurringArchived(supabase, item.id, archived), archived ? 'Frecuente pausado' : 'Frecuente reactivado'),
-    archiveCategory: (category, archived) => run(() => api.setCategoryArchived(supabase, category.id, archived), archived ? 'Categoría archivada' : 'Categoría reactivada'),
-  }), [run, reload, notify, userId]);
+      saveSettings: (values) => run(() => api.saveSettings(supabase, userId, values), 'Ajustes guardados'),
+      checkNow: () => run(async () => {
+        const result = await api.runMyDailyJobs(supabase);
+        notify(`Revisión hecha: ${result.registrados} registrado(s), ${result.avisos} aviso(s) nuevo(s).`);
+      }),
+      sendTelegramTest: async () => {
+        try {
+          const result = await withClockRetry(() => api.sendTelegramTest(supabase));
+          const messages = {
+            enviado: 'Mensaje de prueba enviado. Revisa Telegram.',
+            'sin-token': 'Falta guardar el token del bot en Supabase (paso 2).',
+            'sin-chat': 'Guarda primero tu chat ID y activa Telegram.',
+          };
+          notify(messages[result] ?? result, result === 'enviado' ? 'success' : 'error');
+          await reload();
+        } catch (error) {
+          notify(`No se pudo enviar: ${friendlyError(error)}`, 'error');
+        }
+      },
+      archiveRecurring: (item, archived) => run(() => api.setRecurringArchived(supabase, item.id, archived), archived ? 'Frecuente pausado' : 'Frecuente reactivado'),
+      archiveCategory: (category, archived) => run(() => api.setCategoryArchived(supabase, category.id, archived), archived ? 'Categoría archivada' : 'Categoría reactivada'),
+    };
+  }, [run, reload, notify, userId, laterOccurrences]);
 
   return { ...ledger, balances, status, loadError, reload, actions };
 }

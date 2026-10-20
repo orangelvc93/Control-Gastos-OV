@@ -66,7 +66,11 @@ function initialValues(existing, accounts, defaults) {
 }
 
 // existing: movimiento a editar (en transferencias, la fila de salida con toAccountId).
-export function TransactionSheet({ existing, confirm = false, accounts, categories, defaults = {}, onSave, onReplace, onTrash, onClose }) {
+// recurringItem: el frecuente del que viene el registro; permite aplicar el cambio "a este y los siguientes".
+export function TransactionSheet({
+  existing, confirm = false, recurringItem, accounts, categories, defaults = {},
+  onSave, onSaveFollowing, onReplace, onTrash, onTrashFollowing, onClose,
+}) {
   const [form, setForm] = useState(() => {
     const values = initialValues(existing, accounts, defaults);
     return confirm ? { ...values, status: 'confirmado' } : values;
@@ -75,7 +79,10 @@ export function TransactionSheet({ existing, confirm = false, accounts, categori
   const [busy, setBusy] = useState(false);
   const [showNote, setShowNote] = useState(Boolean(existing?.note));
   const [confirmTrash, setConfirmTrash] = useState(false);
+  const [following, setFollowing] = useState(false);
   const isAdjustment = existing?.kind === 'ajuste';
+  const changedShape = existing && (existing.kind === 'transferencia') !== (form.kind === 'transferencia');
+  const canApplyFollowing = Boolean(existing && recurringItem && existing.occurrenceDate && !changedShape);
 
   const openAccounts = accounts.filter((account) => !account.archivedAt || account.id === form.accountId || account.id === form.toAccountId);
   const kindCategories = useMemo(
@@ -124,8 +131,10 @@ export function TransactionSheet({ existing, confirm = false, accounts, categori
     };
 
     setBusy(true);
-    const changedShape = existing && (existing.kind === 'transferencia') !== (form.kind === 'transferencia');
-    const saved = changedShape ? await onReplace(values, existing) : await onSave(values, existing);
+    let saved;
+    if (changedShape) saved = await onReplace(values, existing);
+    else if (canApplyFollowing && following) saved = await onSaveFollowing(values, existing, recurringItem);
+    else saved = await onSave(values, existing);
     setBusy(false);
     if (saved) {
       rememberAccount(form.accountId);
@@ -279,6 +288,23 @@ export function TransactionSheet({ existing, confirm = false, accounts, categori
               </p>
             ) : null;
           })()}
+          {canApplyFollowing && (
+            <fieldset className="fieldset apply-scope">
+              <legend>Aplicar el cambio a</legend>
+              <div className="segmented" role="radiogroup" aria-label="Aplicar el cambio a">
+                {[[false, 'Solo este'], [true, 'Este y los siguientes']].map(([value, label]) => (
+                  <button key={label} type="button" role="radio" aria-checked={following === value} className={`segment ${following === value ? 'is-active' : ''}`} onClick={() => setFollowing(value)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="form-hint">
+                {following
+                  ? `También cambia el frecuente «${recurringItem.name}» (monto, cuenta y categoría) para las próximas fechas y los registros posteriores a este.`
+                  : `Solo se corrige este registro; el frecuente «${recurringItem.name}» sigue igual.`}
+              </p>
+            </fieldset>
+          )}
           {confirm && (
             <p className="form-hint">Pon el monto real que pagaste o recibiste y guarda: el movimiento pasa a confirmado y empieza a contar en tu saldo.</p>
           )}
@@ -288,7 +314,26 @@ export function TransactionSheet({ existing, confirm = false, accounts, categori
         </form>
       </Sheet>
 
-      {confirmTrash && (
+      {confirmTrash && (recurringItem && existing.occurrenceDate ? (
+        <ConfirmDialog
+          title={`¿Eliminar este registro de «${recurringItem.name}»?`}
+          message="Solo este: va a la papelera y el frecuente sigue. Este y los siguientes: también van a la papelera los registros posteriores y el frecuente deja de registrarse desde esta fecha. Podrás restaurar los movimientos desde Más → Papelera."
+          confirmLabel="Este y los siguientes"
+          altLabel="Solo este"
+          danger
+          onAlt={async () => {
+            const done = await onTrash(existing);
+            if (done) onClose();
+            return done;
+          }}
+          onConfirm={async () => {
+            const done = await onTrashFollowing(existing, recurringItem);
+            if (done) onClose();
+            return done;
+          }}
+          onClose={() => setConfirmTrash(false)}
+        />
+      ) : (
         <ConfirmDialog
           title="¿Enviar a la papelera?"
           message="El movimiento deja de contar en tus saldos. Podrás restaurarlo desde Más → Papelera."
@@ -301,7 +346,7 @@ export function TransactionSheet({ existing, confirm = false, accounts, categori
           }}
           onClose={() => setConfirmTrash(false)}
         />
-      )}
+      ))}
     </>
   );
 }

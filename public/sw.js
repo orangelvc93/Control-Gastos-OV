@@ -2,7 +2,7 @@
 // - Pantalla (HTML): red primero; sin conexión se usa la última copia guardada.
 // - Archivos con hash de /assets: caché primero (nunca cambian de contenido).
 // - Datos de Supabase: nunca se guardan en caché (siempre datos reales).
-const CACHE = 'control-gastos-v1';
+const CACHE = 'control-gastos-v2';
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -44,4 +44,34 @@ self.addEventListener('fetch', (event) => {
       })),
     );
   }
+});
+
+// Notificaciones push (las envía la función del servidor supabase/functions/push).
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data?.text() };
+  }
+  event.waitUntil(self.registration.showNotification(data.title || 'Control de gastos', {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/favicon-32.png',
+    tag: data.tag,
+    data: { link: data.link || '/avisos' },
+  }));
+});
+
+// Al tocar la notificación: se abre la app (o la ventana ya abierta) en la pantalla del aviso.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = `/#${event.notification.data?.link || '/avisos'}`;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
+      if (open) return open.navigate(url).then((client) => (client ?? open).focus());
+      return self.clients.openWindow(url);
+    }),
+  );
 });

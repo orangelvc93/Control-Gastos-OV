@@ -18,7 +18,7 @@ Orden pensado para que cada fase se apoye en la anterior. Pendiente de validar c
 - Libro continuo (sin separación por años).
 - Respaldo en Excel y **migración de todos los datos actuales**.
 
-## Fase 2 · Automatización ✅ (2026-10-20, falta push del navegador)
+## Fase 2 · Automatización ✅ (2026-10-20)
 - Tarea diaria en el servidor (`pg_cron`).
 - [[Movimientos recurrentes]] (frecuencias, "solo este / este y los siguientes").
 - [[Alertas]]: primero los avisos dentro de la app (campana e historial); después la app instalable (PWA) con notificaciones push y el bot de Telegram.
