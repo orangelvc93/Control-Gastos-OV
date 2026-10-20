@@ -27,7 +27,7 @@ function friendlyError(error) {
 // Estado del libro contable. Cada acción guarda solo lo que cambió y luego recarga (son pocas filas).
 // Las acciones devuelven true/false para que los formularios no se cierren si falla el guardado.
 export function useLedger(userId, notify) {
-  const [ledger, setLedger] = useState({ accounts: [], categories: [], transactions: [], recurring: [] });
+  const [ledger, setLedger] = useState({ accounts: [], categories: [], transactions: [], recurring: [], notifications: [], settings: null });
   const [status, setStatus] = useState('loading');
   const [loadError, setLoadError] = useState('');
 
@@ -42,8 +42,19 @@ export function useLedger(userId, notify) {
     }
   }, []);
 
+  // Al abrir la app se registran los frecuentes de hoy (la tarea de las 06:00 lo hace igual,
+  // esto solo adelanta lo que toque si la app se abre antes o la tarea falló).
   useEffect(() => {
-    if (userId) reload();
+    if (!userId) return;
+    (async () => {
+      await reload();
+      try {
+        const result = await withClockRetry(() => api.runMyDailyJobs(supabase));
+        if (result?.registrados || result?.avisos) await reload();
+      } catch {
+        // Si falla, la tarea diaria del servidor lo hará igualmente.
+      }
+    })();
   }, [userId, reload]);
 
   const run = useCallback(async (task, successMessage) => {
@@ -89,12 +100,42 @@ export function useLedger(userId, notify) {
     ),
     // Cambiar un frecuente afecta solo a las próximas fechas; lo ya registrado no se toca.
     saveRecurring: (values, existing) => run(
-      () => (existing ? api.updateRecurring(supabase, existing.id, values) : api.createRecurring(supabase, values)),
+      async () => {
+        await (existing ? api.updateRecurring(supabase, existing.id, values) : api.createRecurring(supabase, values));
+        await api.runMyDailyJobs(supabase);
+      },
       existing ? 'Frecuente actualizado (aplica a las próximas fechas)' : 'Frecuente creado',
     ),
+    markNotificationsRead: async (ids) => {
+      try {
+        await api.markNotificationsRead(supabase, ids);
+        await reload();
+      } catch {
+        // Marcar como leído no es crítico: se reintenta la próxima vez.
+      }
+    },
+    saveSettings: (values) => run(() => api.saveSettings(supabase, userId, values), 'Ajustes guardados'),
+    checkNow: () => run(async () => {
+      const result = await api.runMyDailyJobs(supabase);
+      notify(`Revisión hecha: ${result.registrados} registrado(s), ${result.avisos} aviso(s) nuevo(s).`);
+    }),
+    sendTelegramTest: async () => {
+      try {
+        const result = await withClockRetry(() => api.sendTelegramTest(supabase));
+        const messages = {
+          enviado: 'Mensaje de prueba enviado. Revisa Telegram.',
+          'sin-token': 'Falta guardar el token del bot en Supabase (paso 2).',
+          'sin-chat': 'Guarda primero tu chat ID y activa Telegram.',
+        };
+        notify(messages[result] ?? result, result === 'enviado' ? 'success' : 'error');
+        await reload();
+      } catch (error) {
+        notify(`No se pudo enviar: ${friendlyError(error)}`, 'error');
+      }
+    },
     archiveRecurring: (item, archived) => run(() => api.setRecurringArchived(supabase, item.id, archived), archived ? 'Frecuente pausado' : 'Frecuente reactivado'),
     archiveCategory: (category, archived) => run(() => api.setCategoryArchived(supabase, category.id, archived), archived ? 'Categoría archivada' : 'Categoría reactivada'),
-  }), [run]);
+  }), [run, reload, notify, userId]);
 
   return { ...ledger, balances, status, loadError, reload, actions };
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { centsToInput, formatCents, parseAmountInput } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
 import { accountTypeLabels } from '../../shared/lib/ledger';
+import { DateField } from '../ui/DateField';
 import { Field } from '../ui/Field';
 import { Sheet } from '../ui/Sheet';
 
@@ -55,6 +56,7 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
     const creditLimit = form.creditLimit === '' ? null : parseAmountInput(form.creditLimit);
     const day = (value) => (value === '' ? null : Number(value));
     if (!form.name.trim()) next.name = 'Ponle un nombre a la cuenta.';
+    if (!form.openingDate) next.openingDate = 'Escribe una fecha válida (dd/mm/aaaa).';
     if (!Number.isFinite(opening)) next.opening = 'Monto no válido. Ejemplo: 1.250,40';
     if (creditLimit !== null && !Number.isFinite(creditLimit)) next.creditLimit = 'Cupo no válido.';
     for (const key of ['statementDay', 'dueDay']) {
@@ -126,8 +128,8 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
           >
             {(props) => <input {...props} className="input" inputMode="decimal" placeholder="0,00" value={form.opening} onChange={(event) => update({ opening: event.target.value })} />}
           </Field>
-          <Field label="Desde la fecha">
-            {(props) => <input {...props} type="date" className="input" value={form.openingDate} onChange={(event) => update({ openingDate: event.target.value })} />}
+          <Field label="Desde la fecha" error={errors.openingDate}>
+            {(props) => <DateField {...props} value={form.openingDate} onChange={(openingDate) => update({ openingDate })} />}
           </Field>
         </div>
         {!isCardAccount && (

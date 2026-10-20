@@ -64,7 +64,7 @@ export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
 
       <section className="card" aria-labelledby="mg-due">
         <div className="card-head">
-          <h2 id="mg-due">Pendientes de registrar</h2>
+          <h2 id="mg-due">Próximos y sin registrar</h2>
         </div>
         <DueList due={due} onRegister={onRegisterOccurrence} />
       </section>
@@ -76,7 +76,7 @@ export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
             <Icon name="plus" size={16} /> Nuevo
           </button>
         </div>
-        <p className="form-hint">Arriendo, servicios, suscripciones, sueldo, ahorro mensual… La app te avisa cuándo toca y los registras con un toque.</p>
+        <p className="form-hint">Arriendo, servicios, suscripciones, sueldo, ahorro mensual… Se registran solos en su fecha (cada día a las 06:00 y al abrir la app). Los de monto variable quedan pendientes para que confirmes el valor real.</p>
         {active.length ? (
           <ul className="category-list">
             {active.map((item) => {
@@ -88,7 +88,7 @@ export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
                 <li key={item.id}>
                   <span>
                     {item.name} · {formatCents(item.cents)}
-                    <small>{frequencyLabels[item.frequency]} · {frequencyDetail(item)} · {where}</small>
+                    <small>{frequencyLabels[item.frequency]} · {frequencyDetail(item)} · {where} · {item.fixedAmount ? 'Monto fijo' : 'Monto variable'}</small>
                     <small>{next ? `Próxima: ${next.split('-').reverse().join('/')}` : 'Sin próximas fechas'}</small>
                   </span>
                   <span className="row-actions">
@@ -124,6 +124,13 @@ export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
       <section className="card" aria-labelledby="mg-more">
         <h2 id="mg-more">Más ajustes</h2>
         <ul className="menu-list">
+          <li>
+            <button type="button" className="menu-item" onClick={() => navigate('/ajustes')}>
+              <Icon name="bell" />
+              <span><strong>Avisos y Telegram</strong><small>Cuándo avisarte y conectar tu Telegram</small></span>
+              <Icon name="chevronRight" size={18} />
+            </button>
+          </li>
           <li>
             <button type="button" className="menu-item" onClick={() => navigate('/categorias')}>
               <Icon name="tag" />

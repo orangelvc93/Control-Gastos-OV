@@ -96,7 +96,7 @@
   margin: 0 auto;
   max-width: 760px;
   outline: none;
-  padding: var(--space-4) var(--space-4) calc(var(--tabbar-height) + var(--space-6) + env(safe-area-inset-bottom));
+  padding: var(--space-3) var(--space-4) calc(var(--tabbar-height) + var(--space-6) + env(safe-area-inset-bottom));
 }
 
 .page {
@@ -872,6 +872,316 @@
 .pill-pending {
   background: rgba(251, 191, 36, 0.16);
   color: var(--c-warning);
+}
+
+/* Dashboard */
+
+.chart-grid {
+  align-items: start;
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1100px) {
+  .content:has(.page-dashboard) {
+    max-width: 1180px;
+  }
+
+  .chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.chart-head {
+  display: grid;
+  gap: 2px;
+}
+
+.chart-head p {
+  color: var(--c-subtle);
+  font-size: var(--fs-xs);
+  margin: 0;
+}
+
+.chart-tooltip {
+  background: #241d33;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: var(--c-text);
+  display: grid;
+  font-size: var(--fs-sm);
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.chart-tooltip span {
+  align-items: center;
+  color: var(--c-muted);
+  display: flex;
+  gap: 6px;
+}
+
+.chart-tooltip i {
+  border-radius: 2px;
+  display: inline-block;
+  height: 10px;
+  width: 10px;
+}
+
+.data-table {
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  margin-top: var(--space-2);
+  width: 100%;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid var(--c-border);
+  padding: var(--space-1) var(--space-2);
+  text-align: right;
+}
+
+.data-table th:first-child,
+.data-table td:first-child {
+  text-align: left;
+}
+
+.data-table th {
+  color: var(--c-muted);
+  font-weight: 600;
+}
+
+.usage-list {
+  display: grid;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.usage-list li {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.usage-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.usage-head span,
+.usage-list small {
+  color: var(--c-muted);
+  font-size: var(--fs-sm);
+}
+
+.page-dashboard .stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.chart-legend {
+  color: var(--c-muted);
+  display: flex;
+  font-size: var(--fs-xs);
+  gap: var(--space-4);
+}
+
+.chart-legend span {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.chart-legend i {
+  border-radius: 2px;
+  display: inline-block;
+  height: 10px;
+  width: 10px;
+}
+
+/* Campo de fecha escribible */
+
+.date-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.date-input {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+  position: relative;
+}
+
+/* El calendario nativo queda debajo del botón, invisible: solo se abre con showPicker()/clic. */
+.date-picker-native {
+  border: 0;
+  bottom: 0;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  width: 1px;
+}
+
+.date-shortcuts {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.date-shortcuts .chip {
+  min-height: 32px;
+}
+
+/* Barra superior (celular), campana y avisos */
+
+.topbar {
+  align-items: center;
+  background: rgba(11, 9, 18, 0.94);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  justify-content: space-between;
+  padding: calc(var(--space-1) + env(safe-area-inset-top)) var(--space-2) var(--space-1) var(--space-4);
+  position: sticky;
+  top: 0;
+  z-index: 15;
+}
+
+.topbar .brand,
+.sidebar .brand {
+  color: var(--c-text);
+  text-decoration: none;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.icon-button.is-active {
+  color: var(--c-primary-strong);
+}
+
+.sidebar-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+@media (min-width: 900px) {
+  .topbar {
+    display: none;
+  }
+}
+
+.bell {
+  position: relative;
+}
+
+.badge {
+  background: var(--c-negative);
+  border-radius: 99px;
+  color: #2a050c;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 18px;
+  padding: 3px 5px;
+  position: absolute;
+  right: 4px;
+  text-align: center;
+  top: 4px;
+}
+
+.notice-list {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notice-list li + li {
+  border-top: 1px solid var(--c-border);
+}
+
+.notice {
+  align-items: flex-start;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2);
+  text-align: left;
+  width: 100%;
+}
+
+.notice:hover {
+  background: var(--c-surface-2);
+}
+
+.notice-dot {
+  background: transparent;
+  border-radius: 50%;
+  flex: none;
+  height: 8px;
+  margin-top: 7px;
+  width: 8px;
+}
+
+.notice-list li.is-new .notice-dot {
+  background: var(--c-primary);
+}
+
+.notice-text {
+  display: grid;
+  gap: 2px;
+}
+
+.notice-text span {
+  color: var(--c-muted);
+  font-size: var(--fs-sm);
+}
+
+.notice-text small {
+  color: var(--c-subtle);
+  font-size: var(--fs-xs);
+}
+
+.steps {
+  color: var(--c-muted);
+  display: grid;
+  font-size: var(--fs-sm);
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.steps pre,
+.app code {
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  color: var(--c-text);
+  font-size: var(--fs-xs);
+}
+
+.steps pre {
+  margin: var(--space-1) 0;
+  overflow-x: auto;
+  padding: var(--space-2);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.app code {
+  padding: 1px 4px;
 }
 
 /* Gestión */

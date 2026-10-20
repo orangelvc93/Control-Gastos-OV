@@ -196,7 +196,8 @@ select
   a.opening_balance + coalesce(sum(t.amount) filter (where t.status = 'confirmado'), 0) as balance,
   coalesce(sum(t.amount) filter (where t.status = 'pendiente'), 0) as pending_total
 from public.accounts a
-left join public.transactions t on t.account_id = a.id and t.deleted_at is null
+-- El saldo inicial ya incluye lo anterior a su fecha: esos movimientos no se vuelven a sumar.
+left join public.transactions t on t.account_id = a.id and t.deleted_at is null and t.date >= a.opening_date
 group by a.id;
 
 -- Transferencias: las 2 filas se crean o editan juntas, en una sola transacción.

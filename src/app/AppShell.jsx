@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useLedger } from '../hooks/useLedger';
-import { LegacyBook } from '../features/legacy/LegacyBook';
 import { TransactionSheet } from './components/TransactionSheet';
 import { AccountDetailPage, AccountsPage } from './pages/AccountsPage';
 import { HomePage } from './pages/HomePage';
 import { ManagementPage } from './pages/ManagementPage';
 import { CategoriesPage, MorePage, TrashPage } from './pages/MorePages';
 import { MovementsPage } from './pages/MovementsPage';
+import { NotificationsPage, SettingsPage } from './pages/NotifyPages';
 import { Icon } from './ui/Icon';
 import { useNotify } from './ui/Toast';
 import { useHashRoute } from './useHashRoute';
+
+// Las gráficas (recharts) pesan: se descargan solo al abrir el dashboard.
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
+const LegacyBook = lazy(() => import('../features/legacy/LegacyBook').then((module) => ({ default: module.LegacyBook })));
 
 const navItems = [
   ['/', 'home', 'Inicio'],
@@ -18,14 +22,14 @@ const navItems = [
   ['/mas', 'more', 'Más'],
 ];
 
-// En el menú lateral (escritorio) Gestión tiene entrada propia; en el celular está dentro de "Más".
-const sideNavItems = [...navItems.slice(0, 3), ['/gestion', 'tag', 'Gestión'], navItems[3]];
+// En el menú lateral (escritorio) Dashboard y Gestión tienen entrada propia; en el celular están en la barra superior y en "Más".
+const sideNavItems = [navItems[0], ['/dashboard', 'chart', 'Dashboard'], navItems[1], navItems[2], ['/gestion', 'tag', 'Gestión'], navItems[3]];
 
 function sectionOf(path, desktop) {
   if (path.startsWith('/movimientos')) return '/movimientos';
   if (path.startsWith('/cuentas')) return '/cuentas';
   if (path === '/') return '/';
-  if (desktop && path === '/gestion') return '/gestion';
+  if (desktop && (path === '/gestion' || path === '/dashboard')) return path;
   return '/mas';
 }
 
@@ -36,6 +40,7 @@ export function AppShell({ user, onLogout }) {
   const [sheet, setSheet] = useState(null);
   const section = sectionOf(path, false);
   const sideSection = sectionOf(path, true);
+  const unread = ledger.notifications.filter((item) => !item.readAt).length;
 
   function openNew(defaults = {}) {
     setSheet({ defaults });
@@ -57,18 +62,26 @@ export function AppShell({ user, onLogout }) {
   }
 
   // En una transferencia se edita siempre desde la fila de salida, con su cuenta destino.
-  function openExisting(item) {
+  // confirm: se abre para confirmar un pendiente (el estado ya viene como "Confirmado").
+  function openExisting(item, { confirm = false } = {}) {
     if (item.kind !== 'transferencia') {
-      setSheet({ existing: item });
+      setSheet({ existing: item, confirm });
       return;
     }
     const pair = ledger.transactions.filter((transaction) => transaction.transferId === item.transferId);
     const from = pair.find((transaction) => transaction.cents < 0) ?? item;
     const to = pair.find((transaction) => transaction.cents > 0);
-    setSheet({ existing: { ...from, cents: -from.cents, toAccountId: to?.accountId } });
+    setSheet({ existing: { ...from, cents: -from.cents, toAccountId: to?.accountId }, confirm });
   }
 
-  const pageProps = { ledger, navigate, onSelectTransaction: openExisting, onNewTransaction: openNew, onRegisterOccurrence: registerOccurrence };
+  const pageProps = {
+    ledger,
+    navigate,
+    onSelectTransaction: openExisting,
+    onConfirmTransaction: (item) => openExisting(item, { confirm: true }),
+    onNewTransaction: openNew,
+    onRegisterOccurrence: registerOccurrence,
+  };
   const accountMatch = path.match(/^\/cuentas\/([\w-]+)$/);
 
   let page;
@@ -86,7 +99,9 @@ export function AppShell({ user, onLogout }) {
       <div className="page page-wide">
         <button type="button" className="back" onClick={() => navigate('/mas')}><Icon name="chevronLeft" size={18} /> Más</button>
         <p className="alert alert-info">Esta es la app anterior, con tu histórico de 2026. Los datos nuevos se registran en Inicio, Movimientos y Cuentas.</p>
-        <LegacyBook user={user} />
+        <Suspense fallback={<p className="page-loading" role="status">Cargando histórico…</p>}>
+          <LegacyBook user={user} />
+        </Suspense>
       </div>
     );
   } else if (accountMatch) {
@@ -95,10 +110,20 @@ export function AppShell({ user, onLogout }) {
     page = <MovementsPage {...pageProps} />;
   } else if (path === '/cuentas') {
     page = <AccountsPage {...pageProps} />;
+  } else if (path === '/dashboard') {
+    page = (
+      <Suspense fallback={<p className="page-loading" role="status">Cargando gráficas…</p>}>
+        <DashboardPage {...pageProps} />
+      </Suspense>
+    );
   } else if (path === '/mas') {
     page = <MorePage {...pageProps} onLogout={onLogout} userEmail={user.email} />;
   } else if (path === '/gestion') {
     page = <ManagementPage {...pageProps} />;
+  } else if (path === '/avisos') {
+    page = <NotificationsPage {...pageProps} />;
+  } else if (path === '/ajustes') {
+    page = <SettingsPage {...pageProps} />;
   } else if (path === '/categorias') {
     page = <CategoriesPage {...pageProps} />;
   } else if (path === '/papelera') {
@@ -107,13 +132,36 @@ export function AppShell({ user, onLogout }) {
     page = <HomePage {...pageProps} />;
   }
 
+  const bell = (
+    <a href="#/avisos" className={`icon-button bell ${path === '/avisos' ? 'is-active' : ''}`} aria-label={unread ? `Avisos, ${unread} sin leer` : 'Avisos'}>
+      <Icon name="bell" />
+      {unread > 0 && <span className="badge" aria-hidden="true">{unread > 9 ? '9+' : unread}</span>}
+    </a>
+  );
+
   return (
     <div className="app">
       <a className="skip-link" href="#contenido">Saltar al contenido</a>
-      <aside className="sidebar">
-        <div className="brand">
+      <header className="topbar">
+        <a href="#/" className="brand">
           <span className="brand-mark" aria-hidden="true">$</span>
           <span>Control de gastos</span>
+        </a>
+        <span className="topbar-actions">
+          <a href="#/dashboard" className={`icon-button ${path === '/dashboard' ? 'is-active' : ''}`} aria-label="Dashboard">
+            <Icon name="chart" />
+          </a>
+          {bell}
+        </span>
+      </header>
+
+      <aside className="sidebar">
+        <div className="sidebar-head">
+          <div className="brand">
+            <span className="brand-mark" aria-hidden="true">$</span>
+            <span>Control de gastos</span>
+          </div>
+          {bell}
         </div>
         <button type="button" className="btn btn-primary btn-block" onClick={() => openNew()}>
           <Icon name="plus" size={18} /> Nuevo movimiento
@@ -154,6 +202,7 @@ export function AppShell({ user, onLogout }) {
       {sheet && (
         <TransactionSheet
           existing={sheet.existing}
+          confirm={sheet.confirm}
           defaults={sheet.defaults}
           accounts={ledger.accounts}
           categories={ledger.categories}

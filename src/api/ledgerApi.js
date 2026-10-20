@@ -94,16 +94,45 @@ function fromRecurring(row) {
     startDate: row.start_date,
     endDate: row.end_date,
     note: row.note ?? '',
+    fixedAmount: row.fixed_amount,
     archivedAt: row.archived_at,
   };
 }
 
+function fromNotification(row) {
+  return {
+    id: row.id,
+    kind: row.kind,
+    title: row.title,
+    body: row.body,
+    link: row.link,
+    createdAt: row.created_at,
+    readAt: row.read_at,
+    sentTelegram: Boolean(row.telegram_sent_at),
+  };
+}
+
+const defaultSettings = { telegramChatId: '', telegramEnabled: false, notifyDaysBefore: 2, cardUsageAlertPct: 30 };
+
+function fromSettings(row) {
+  if (!row) return defaultSettings;
+  return {
+    telegramChatId: row.telegram_chat_id ?? '',
+    telegramEnabled: row.telegram_enabled,
+    notifyDaysBefore: row.notify_days_before,
+    cardUsageAlertPct: Number(row.card_usage_alert_pct),
+  };
+}
+
+// Ver countsForBalance en shared/lib/ledger.js: los movimientos anteriores al saldo inicial no lo cambian.
 export async function fetchLedger(supabase) {
-  const [accounts, categories, transactions, recurring] = await Promise.all([
+  const [accounts, categories, transactions, recurring, notifications, settings] = await Promise.all([
     supabase.from('accounts').select('*').order('sort_order').order('created_at'),
     supabase.from('categories').select('*').order('name'),
     supabase.from('transactions').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
     supabase.from('recurring_items').select('*').order('name'),
+    supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(60),
+    supabase.from('user_settings').select('*').maybeSingle(),
   ]);
 
   return {
@@ -111,7 +140,35 @@ export async function fetchLedger(supabase) {
     categories: check(categories).map(fromCategory),
     transactions: check(transactions).map(fromTransaction),
     recurring: check(recurring).map(fromRecurring),
+    notifications: check(notifications).map(fromNotification),
+    settings: fromSettings(check(settings)),
   };
+}
+
+// Avisos y automatización --------------------------------------------------------
+
+export async function markNotificationsRead(supabase, ids) {
+  if (!ids.length) return;
+  check(await supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', ids));
+}
+
+// Registra los frecuentes que tocan hoy y genera avisos, sin esperar a la tarea de las 06:00.
+export async function runMyDailyJobs(supabase) {
+  return check(await supabase.rpc('run_my_daily_jobs'));
+}
+
+export async function sendTelegramTest(supabase) {
+  return check(await supabase.rpc('telegram_send_test'));
+}
+
+export async function saveSettings(supabase, userId, values) {
+  check(await supabase.from('user_settings').upsert({
+    user_id: userId,
+    telegram_chat_id: values.telegramChatId.trim() || null,
+    telegram_enabled: Boolean(values.telegramEnabled && values.telegramChatId.trim()),
+    notify_days_before: Number(values.notifyDaysBefore),
+    card_usage_alert_pct: Number(values.cardUsageAlertPct),
+  }));
 }
 
 // Movimientos ----------------------------------------------------------------
@@ -217,6 +274,7 @@ function toRecurringRow(values) {
     start_date: values.startDate,
     end_date: values.endDate || null,
     note: values.note.trim(),
+    fixed_amount: values.fixedAmount ?? true,
   };
 }
 

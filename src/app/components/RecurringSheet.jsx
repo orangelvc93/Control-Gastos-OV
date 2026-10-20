@@ -3,6 +3,7 @@ import { centsToInput, parseAmountInput } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
 import { isCard } from '../../shared/lib/ledger';
 import { frequencyLabels } from '../../shared/lib/recurring';
+import { DateField } from '../ui/DateField';
 import { Field } from '../ui/Field';
 import { Sheet } from '../ui/Sheet';
 
@@ -25,12 +26,13 @@ function initialValues(existing, accounts) {
       startDate: existing.startDate,
       endDate: existing.endDate ?? '',
       note: existing.note,
+      fixedAmount: existing.fixedAmount,
     };
   }
   const main = accounts.find((account) => !account.archivedAt && !account.isSavings && !isCard(account));
   return {
     name: '', kind: 'gasto', amount: '', accountId: main?.id ?? '', toAccountId: '', categoryId: '',
-    frequency: 'mensual', startDate: today(), endDate: '', note: '',
+    frequency: 'mensual', startDate: today(), endDate: '', note: '', fixedAmount: true,
   };
 }
 
@@ -52,6 +54,7 @@ export function RecurringSheet({ existing, accounts, categories, onSave, onClose
     if (!form.accountId) next.accountId = 'Elige una cuenta.';
     if (transfer && (!form.toAccountId || form.toAccountId === form.accountId)) next.toAccountId = 'Elige otra cuenta de destino.';
     if (!transfer && !form.categoryId) next.categoryId = 'Elige una categoría.';
+    if (!form.startDate) next.startDate = 'Escribe una fecha válida (dd/mm/aaaa).';
     if (form.endDate && form.endDate < form.startDate) next.endDate = 'Debe ser después del inicio.';
     setErrors(next);
     if (Object.keys(next).length) return;
@@ -137,13 +140,20 @@ export function RecurringSheet({ existing, accounts, categories, onSave, onClose
               </select>
             )}
           </Field>
-          <Field label="Primera fecha" hint="Define el día que se repite.">
-            {(props) => <input {...props} type="date" className="input" value={form.startDate} onChange={(event) => update({ startDate: event.target.value })} />}
+          <Field label="Primera fecha" error={errors.startDate} hint="Define el día que se repite.">
+            {(props) => <DateField {...props} value={form.startDate} onChange={(startDate) => update({ startDate })} shortcuts={false} />}
           </Field>
           <Field label="Hasta (opcional)" error={errors.endDate}>
-            {(props) => <input {...props} type="date" className="input" value={form.endDate} onChange={(event) => update({ endDate: event.target.value })} />}
+            {(props) => <DateField {...props} value={form.endDate} onChange={(endDate) => update({ endDate })} shortcuts={false} />}
           </Field>
         </div>
+
+        <label className="check">
+          <input type="checkbox" checked={form.fixedAmount} onChange={(event) => update({ fixedAmount: event.target.checked })} />
+          <span>
+            Monto fijo: se registra solo y confirmado en su fecha. Desmárcalo si el valor cambia cada vez (luz, agua): se anotará como pendiente para que pongas el monto real.
+          </span>
+        </label>
 
         <Field label="Nota (opcional)">
           {(props) => <input {...props} className="input" value={form.note} onChange={(event) => update({ note: event.target.value })} />}

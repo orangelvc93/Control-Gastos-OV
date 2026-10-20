@@ -6,9 +6,10 @@ import { DueList } from '../components/DueList';
 import { TransactionList } from '../components/TransactionList';
 import { Amount, DebtAmount } from '../ui/Field';
 
-export function HomePage({ ledger, navigate, onSelectTransaction, onNewTransaction, onRegisterOccurrence }) {
+export function HomePage({ ledger, navigate, onSelectTransaction, onConfirmTransaction, onNewTransaction, onRegisterOccurrence }) {
   const { accounts, categories, transactions, balances, recurring } = ledger;
   const due = dueOccurrences(recurring, transactions, today(), { futureDays: 7 });
+  const pending = groupForList(activeTransactions(transactions)).filter((item) => item.status === 'pendiente');
   const summary = netWorthSummary(accounts, balances);
   const currentMonth = monthKey(today());
   const month = monthSummary(transactions, currentMonth);
@@ -43,10 +44,36 @@ export function HomePage({ ledger, navigate, onSelectTransaction, onNewTransacti
         </div>
       </section>
 
+      {pending.length > 0 && (
+        <section className="card" aria-labelledby="pending-title">
+          <div className="card-head">
+            <h2 id="pending-title">Por confirmar</h2>
+            <span className="pill pill-pending">{pending.length}</span>
+          </div>
+          <p className="form-hint">Anotados automáticamente o marcados como pendientes: todavía no cuentan en tus saldos.</p>
+          <ul className="due-list">
+            {pending.slice(0, 5).map((item) => (
+              <li key={item.id}>
+                <span className="due-text">
+                  <strong>{item.description || 'Movimiento'}</strong>
+                  <small>{item.date.split('-').reverse().join('/')}</small>
+                </span>
+                <span className={`amount ${item.kind === 'ingreso' ? 'amount-positive' : item.kind === 'gasto' ? 'amount-negative' : 'amount-zero'}`}>
+                  {formatCents(Math.abs(item.cents))}
+                </span>
+                <button type="button" className="btn btn-secondary btn-small" onClick={() => onConfirmTransaction(item)} aria-label={`Confirmar ${item.description}`}>
+                  Confirmar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {due.length > 0 && (
         <section className="card" aria-labelledby="due-title">
           <div className="card-head">
-            <h2 id="due-title">Por registrar</h2>
+            <h2 id="due-title">Próximos</h2>
             <button type="button" className="link" onClick={() => navigate('/gestion')}>Frecuentes</button>
           </div>
           <DueList due={due} onRegister={onRegisterOccurrence} limit={5} />
@@ -56,7 +83,10 @@ export function HomePage({ ledger, navigate, onSelectTransaction, onNewTransacti
       <section className="card" aria-labelledby="month-title">
         <div className="card-head">
           <h2 id="month-title">{monthLabel(currentMonth)}</h2>
-          <button type="button" className="link" onClick={() => navigate('/movimientos')}>Ver mes</button>
+          <span className="row-actions">
+            <button type="button" className="link" onClick={() => navigate('/dashboard')}>Gráficas</button>
+            <button type="button" className="link" onClick={() => navigate('/movimientos')}>Ver mes</button>
+          </span>
         </div>
         <dl className="month-row">
           <div><dt>Ingresos</dt><dd className="amount amount-positive">{formatCents(month.income)}</dd></div>

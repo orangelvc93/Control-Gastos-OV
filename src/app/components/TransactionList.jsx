@@ -52,6 +52,9 @@ export function TransactionList({ items, accounts, categories, onSelect, account
                       {transferInList
                         ? <span className="amount amount-zero">{formatCents(item.pairCents)}</span>
                         : <Amount cents={item.cents} signed />}
+                      {accountView && item.beforeOpening && (
+                        <span className="tx-running">Antes del saldo inicial: no lo cambia</span>
+                      )}
                       {accountView && item.runningCents !== undefined && (
                         <span className="tx-running">{debtView ? `Deuda ${formatCents(-item.runningCents)}` : `Saldo ${formatCents(item.runningCents)}`}</span>
                       )}

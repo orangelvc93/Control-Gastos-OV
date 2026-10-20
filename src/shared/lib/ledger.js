@@ -37,9 +37,15 @@ export function activeTransactions(transactions) {
   return transactions.filter((transaction) => !transaction.deletedAt);
 }
 
+// El saldo inicial ya incluye todo lo ocurrido antes de su fecha: un movimiento anterior no lo cambia
+// (si contara, se sumaría dos veces). Misma regla que la vista account_balances.
+export function countsForBalance(account, transaction) {
+  return transaction.date >= account.openingDate;
+}
+
 // Desglose del saldo de una cuenta, para poder explicar de dónde sale cada número.
 export function accountBreakdown(account, transactions) {
-  const own = activeTransactions(transactions).filter((transaction) => transaction.accountId === account.id);
+  const own = activeTransactions(transactions).filter((transaction) => transaction.accountId === account.id && countsForBalance(account, transaction));
   const confirmed = own.filter((transaction) => transaction.status === 'confirmado');
   const byKind = (kind) => sumCents(confirmed.filter((transaction) => transaction.kind === kind), (transaction) => transaction.cents);
   const income = byKind('ingreso');
@@ -141,6 +147,7 @@ export function withRunningBalance(account, transactions) {
     .sort((a, b) => (a.date === b.date ? a.createdAt.localeCompare(b.createdAt) : a.date.localeCompare(b.date)));
   let running = account.openingCents;
   const rows = own.map((transaction) => {
+    if (!countsForBalance(account, transaction)) return { ...transaction, runningCents: undefined, beforeOpening: true };
     if (transaction.status === 'confirmado') running += transaction.cents;
     return { ...transaction, runningCents: running };
   });

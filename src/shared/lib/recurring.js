@@ -90,9 +90,10 @@ export function frequencyDetail(item) {
 
 // Ocurrencias pendientes de registrar: vencidas (desde hace `pastDays`) o próximas (hasta `futureDays`).
 export function dueOccurrences(items, transactions, today, { pastDays = 31, futureDays = 15 } = {}) {
+  // Lo enviado a la papelera también cuenta como registrado: si lo borraste, no se vuelve a pedir.
   const registered = new Set(
     transactions
-      .filter((transaction) => transaction.recurringId && !transaction.deletedAt)
+      .filter((transaction) => transaction.recurringId)
       .map((transaction) => `${transaction.recurringId}:${transaction.occurrenceDate}`),
   );
   const from = addDays(today, -pastDays);

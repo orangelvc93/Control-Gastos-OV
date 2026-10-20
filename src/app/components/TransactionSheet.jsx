@@ -3,6 +3,7 @@ import { centsToInput, parseAmountInput } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
 import { isCard } from '../../shared/lib/ledger';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { DateField } from '../ui/DateField';
 import { Field } from '../ui/Field';
 import { Sheet } from '../ui/Sheet';
 
@@ -65,8 +66,11 @@ function initialValues(existing, accounts, defaults) {
 }
 
 // existing: movimiento a editar (en transferencias, la fila de salida con toAccountId).
-export function TransactionSheet({ existing, accounts, categories, defaults = {}, onSave, onReplace, onTrash, onClose }) {
-  const [form, setForm] = useState(() => initialValues(existing, accounts, defaults));
+export function TransactionSheet({ existing, confirm = false, accounts, categories, defaults = {}, onSave, onReplace, onTrash, onClose }) {
+  const [form, setForm] = useState(() => {
+    const values = initialValues(existing, accounts, defaults);
+    return confirm ? { ...values, status: 'confirmado' } : values;
+  });
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
   const [showNote, setShowNote] = useState(Boolean(existing?.note));
@@ -85,7 +89,7 @@ export function TransactionSheet({ existing, accounts, categories, defaults = {}
     const cents = parseAmountInput(form.amount);
     if (!Number.isFinite(cents) || cents <= 0) next.amount = 'Escribe un monto mayor que cero, por ejemplo 12,50.';
     if (!form.accountId) next.accountId = 'Elige una cuenta.';
-    if (!form.date) next.date = 'Elige una fecha.';
+    if (!form.date) next.date = 'Escribe una fecha válida, por ejemplo 20/10/2026.';
     if (form.kind === 'transferencia') {
       if (!form.toAccountId) next.toAccountId = 'Elige la cuenta de destino.';
       else if (form.toAccountId === form.accountId) next.toAccountId = 'El destino debe ser otra cuenta.';
@@ -130,7 +134,7 @@ export function TransactionSheet({ existing, accounts, categories, defaults = {}
   }
 
   const title = existing
-    ? (isAdjustment ? 'Ajuste de saldo' : 'Editar movimiento')
+    ? (confirm ? `Confirmar: ${existing.description || 'movimiento'}` : isAdjustment ? 'Ajuste de saldo' : 'Editar movimiento')
     : defaults.recurringId ? `Registrar: ${defaults.description}` : 'Nuevo movimiento';
 
   return (
@@ -232,7 +236,7 @@ export function TransactionSheet({ existing, accounts, categories, defaults = {}
 
           <div className="field-row">
             <Field label="Fecha" error={errors.date}>
-              {(props) => <input {...props} type="date" className="input" value={form.date} onChange={(event) => update({ date: event.target.value })} />}
+              {(props) => <DateField {...props} value={form.date} onChange={(date) => update({ date })} />}
             </Field>
             <Field label="Estado">
               {(props) => (
@@ -266,6 +270,17 @@ export function TransactionSheet({ existing, accounts, categories, defaults = {}
 
           {isAdjustment && (
             <p className="form-hint">Un ajuste corrige el saldo para que cuadre con el banco. No cuenta como ingreso ni gasto.</p>
+          )}
+          {(() => {
+            const account = accounts.find((item) => item.id === form.accountId);
+            return account && form.date && form.date < account.openingDate ? (
+              <p className="alert alert-info">
+                Esta fecha es anterior al saldo inicial de {account.name} ({account.openingDate.split('-').reverse().join('/')}). Se guarda para tus reportes, pero no cambia el saldo de la cuenta, que ya lo incluye.
+              </p>
+            ) : null;
+          })()}
+          {confirm && (
+            <p className="form-hint">Pon el monto real que pagaste o recibiste y guarda: el movimiento pasa a confirmado y empieza a contar en tu saldo.</p>
           )}
           {defaults.recurringId && (
             <p className="form-hint">Viene de tus frecuentes. Si este mes el monto fue distinto, cámbialo: solo afecta a este registro.</p>
