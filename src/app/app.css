@@ -1318,6 +1318,7 @@
 }
 
 .field-row {
+  align-items: start;
   display: grid;
   gap: var(--space-3);
   grid-template-columns: minmax(0, 1fr);
@@ -1783,4 +1784,123 @@
     display: flex;
     justify-content: space-between;
   }
+}
+
+.factor-grid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 420px) {
+  .factor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Créditos: tabla de pagos y simulador de abonos -------------------------- */
+
+.table-scroll {
+  margin: 0 calc(var(--space-2) * -1);
+  overflow-x: auto;
+}
+
+.loan-table {
+  min-width: 520px;
+}
+
+.loan-table td {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.loan-table tr.is-paid td {
+  color: var(--c-subtle);
+}
+
+.sim-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.sim-card {
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.sim-card h3,
+.sim-card p {
+  margin: 0;
+}
+
+.sim-saved {
+  color: var(--c-positive);
+  font-weight: 700;
+}
+
+/* Plan para salir de deudas ---------------------------------------------- */
+
+.debt-sano .stat-value { color: var(--c-positive); }
+.debt-cuidado .stat-value { color: var(--c-warning); }
+.debt-alto .stat-value { color: #fb7185; }
+
+.inline-form {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  max-width: 360px;
+}
+
+.sim-card.is-best {
+  border-color: var(--c-primary-strong);
+}
+
+.sim-card h3 small {
+  color: var(--c-primary-strong);
+  font-size: var(--fs-xs);
+}
+
+.legend-dot {
+  border-radius: 99px;
+  display: inline-block;
+  height: 10px;
+  margin-right: var(--space-2);
+  width: 10px;
+}
+
+.payoff-order {
+  color: var(--c-muted);
+  display: grid;
+  font-size: var(--fs-sm);
+  gap: 2px;
+  margin: 0;
+  padding-left: var(--space-4, 1.25rem);
+}
+
+.stat-link {
+  font-size: var(--fs-xs);
+  justify-self: start;
+}
+
+/* Las tablas de la app anterior (styles.css) tienen ancho mínimo y encabezado morado: no aplican aquí. */
+.data-table {
+  min-width: 0;
+}
+
+.data-table.loan-table {
+  min-width: 520px;
+}
+
+.data-table th {
+  background: transparent;
+  color: var(--c-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }

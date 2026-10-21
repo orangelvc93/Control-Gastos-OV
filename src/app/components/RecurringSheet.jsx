@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { centsToInput, parseAmountInput } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
-import { isCard } from '../../shared/lib/ledger';
+import { isDebt } from '../../shared/lib/ledger';
 import { frequencyLabels } from '../../shared/lib/recurring';
 import { DateField } from '../ui/DateField';
 import { Field } from '../ui/Field';
@@ -29,7 +29,7 @@ function initialValues(existing, accounts) {
       fixedAmount: existing.fixedAmount,
     };
   }
-  const main = accounts.find((account) => !account.archivedAt && !account.isSavings && !isCard(account));
+  const main = accounts.find((account) => !account.archivedAt && !account.isSavings && !isDebt(account));
   return {
     name: '', kind: 'gasto', amount: '', accountId: main?.id ?? '', toAccountId: '', categoryId: '',
     frequency: 'mensual', startDate: today(), endDate: '', note: '', fixedAmount: true,

@@ -30,7 +30,7 @@ function friendlyError(error) {
 // Las acciones devuelven true/false para que los formularios no se cierren si falla el guardado.
 export function useLedger(userId, notify) {
   const [ledger, setLedger] = useState({
-    accounts: [], categories: [], transactions: [], recurring: [], notifications: [], settings: null, installments: [], statements: [],
+    accounts: [], categories: [], transactions: [], recurring: [], notifications: [], settings: null, installments: [], statements: [], loans: [],
   });
   const [status, setStatus] = useState('loading');
   const [loadError, setLoadError] = useState('');
@@ -178,6 +178,7 @@ export function useLedger(userId, notify) {
         }
       },
       saveSettings: (values) => run(() => api.saveSettings(supabase, userId, values), 'Ajustes guardados'),
+      saveMonthlyIncome: (cents) => run(() => api.saveMonthlyIncome(supabase, userId, cents), cents === null ? 'Se usará el promedio de tus ingresos' : 'Ingreso mensual guardado'),
       checkNow: () => run(async () => {
         const result = await api.runMyDailyJobs(supabase);
         notify(`Revisión hecha: ${result.registrados} registrado(s), ${result.avisos} aviso(s) nuevo(s).`);
@@ -206,6 +207,31 @@ export function useLedger(userId, notify) {
       archiveInstallment: (plan) => run(() => api.setInstallmentArchived(supabase, plan.id, true), 'Diferido eliminado'),
       saveStatement: (values) => run(() => api.saveStatement(supabase, values), 'Estado de cuenta anotado'),
       payCard: (values) => run(() => api.createTransfer(supabase, values), 'Pago de la tarjeta registrado'),
+      // Crédito nuevo: cuenta de deuda (saldo 0) + ficha + desembolso (transferencia del crédito a la cuenta donde entró el dinero).
+      // Crédito que ya tenías: la cuenta empieza hoy con el saldo pendiente como deuda.
+      saveLoan: (values, existing) => run(async () => {
+        if (existing) {
+          await api.updateAccount(supabase, existing.account.id, { ...existing.account, ...values.account });
+          await api.updateLoan(supabase, existing.loan.id, { ...values.loan, accountId: existing.account.id });
+          return;
+        }
+        const accountId = await api.createAccount(supabase, values.account);
+        await api.createLoan(supabase, { ...values.loan, accountId });
+        if (values.disbursement) {
+          await api.createTransfer(supabase, {
+            fromAccountId: accountId, toAccountId: values.disbursement.toAccountId, cents: values.loan.principalCents,
+            date: values.account.openingDate, description: `Desembolso ${values.account.name}`, note: '', status: 'confirmado',
+          });
+        }
+        await api.runMyDailyJobs(supabase);
+      }, existing ? 'Crédito actualizado' : 'Crédito creado'),
+      // Abono extra a capital; "reducir cuota" además guarda la cuota nueva.
+      payLoanExtra: ({ loan, account, fromAccountId, cents, date, newPaymentCents }) => run(async () => {
+        await api.createTransfer(supabase, {
+          fromAccountId, toAccountId: account.id, cents, date, description: `Abono extra a capital: ${account.name}`, note: '', status: 'confirmado',
+        });
+        if (newPaymentCents) await api.setLoanPayment(supabase, loan.id, newPaymentCents);
+      }, 'Abono registrado'),
     };
   }, [run, reload, notify, userId, laterOccurrences, ledger.accounts, ledger.installments]);
 

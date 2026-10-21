@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { cardReady } from '../../shared/lib/cards';
 import { formatCents, sumCents } from '../../shared/lib/cents';
-import { accountBreakdown, accountTypeLabels, isCard, withRunningBalance } from '../../shared/lib/ledger';
+import { accountBreakdown, accountTypeLabels, isCard, isDebt, isLoan, withRunningBalance } from '../../shared/lib/ledger';
+import { loanState } from '../../shared/lib/loans';
 import { AccountSheet, AdjustBalanceSheet } from '../components/AccountSheet';
 import { TransactionList } from '../components/TransactionList';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
@@ -10,9 +11,11 @@ import { Icon } from '../ui/Icon';
 import {
   cardTabs, CardSummary, ExistingInstallmentSheet, InstallmentsView, PayCardSheet, StatementNoteSheet, StatementView,
 } from './CardPanels';
+import { ExtraPaymentSheet, LoanSheet, LoanSimulator, LoanSummary, LoanTable, loanTabs } from './LoanPanels';
 
-function AccountCard({ account, balance, onOpen }) {
+function AccountCard({ account, balance, loanProgress, onOpen }) {
   const card = isCard(account);
+  const debtAccount = isDebt(account);
   const debt = -balance;
   const usedPercent = card && account.creditLimitCents ? Math.min(100, Math.max(0, (debt / account.creditLimitCents) * 100)) : 0;
 
@@ -26,9 +29,15 @@ function AccountCard({ account, balance, onOpen }) {
             <small>{[account.institution, accountTypeLabels[account.type]].filter(Boolean).join(' · ')}</small>
           </span>
           <span className="account-card-balance">
-            {card ? <><small>Deuda</small><DebtAmount balanceCents={balance} /></> : <Amount cents={balance} />}
+            {debtAccount ? <><small>Deuda</small><DebtAmount balanceCents={balance} /></> : <Amount cents={balance} />}
           </span>
         </span>
+        {loanProgress && (
+          <span className="credit">
+            <span className="credit-bar" aria-hidden="true"><span style={{ width: `${loanProgress.percent}%` }} /></span>
+            <span className="credit-text">{loanProgress.paid} de {loanProgress.total} cuotas pagadas</span>
+          </span>
+        )}
         {card && account.creditLimitCents !== null && (
           <span className="credit">
             <span className="credit-bar" aria-hidden="true"><span style={{ width: `${usedPercent}%` }} /></span>
@@ -43,17 +52,25 @@ function AccountCard({ account, balance, onOpen }) {
 }
 
 export function AccountsPage({ ledger, navigate }) {
-  const { accounts, balances, actions } = ledger;
+  const { accounts, balances, actions, loans, transactions } = ledger;
   const [creating, setCreating] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const open = accounts.filter((account) => !account.archivedAt);
   const archived = accounts.filter((account) => account.archivedAt);
 
   const groups = [
-    ['Disponible', open.filter((account) => !isCard(account) && !account.isSavings)],
-    ['Ahorros e inversiones', open.filter((account) => !isCard(account) && account.isSavings)],
+    ['Disponible', open.filter((account) => !isDebt(account) && !account.isSavings)],
+    ['Ahorros e inversiones', open.filter((account) => !isDebt(account) && account.isSavings)],
     ['Tarjetas de crédito', open.filter(isCard)],
+    ['Créditos y préstamos', open.filter(isLoan)],
   ].filter(([, list]) => list.length);
+
+  function loanProgress(account) {
+    const loan = loans.find((item) => item.accountId === account.id);
+    if (!loan) return null;
+    const { paidCount } = loanState(loan, account, transactions);
+    return { paid: paidCount, total: loan.termMonths, percent: Math.min(100, Math.round((paidCount / loan.termMonths) * 100)) };
+  }
 
   return (
     <div className="page">
@@ -68,11 +85,17 @@ export function AccountsPage({ ledger, navigate }) {
         <section key={title} className="account-group" aria-label={title}>
           <div className="group-head">
             <h2>{title}</h2>
-            <span className="group-total">{formatCents(sumCents(list, (account) => (isCard(account) ? -balances[account.id] : balances[account.id])))}</span>
+            <span className="group-total">{formatCents(sumCents(list, (account) => (isDebt(account) ? -balances[account.id] : balances[account.id])))}</span>
           </div>
           <ul className="account-list">
             {list.map((account) => (
-              <AccountCard key={account.id} account={account} balance={balances[account.id] ?? 0} onOpen={() => navigate(`/cuentas/${account.id}`)} />
+              <AccountCard
+                key={account.id}
+                account={account}
+                balance={balances[account.id] ?? 0}
+                loanProgress={isLoan(account) ? loanProgress(account) : null}
+                onOpen={() => navigate(`/cuentas/${account.id}`)}
+              />
             ))}
           </ul>
         </section>
@@ -107,7 +130,9 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
   const [paying, setPaying] = useState(null);
   const [noting, setNoting] = useState(null);
   const [installmentSheet, setInstallmentSheet] = useState(null);
+  const [extraPayment, setExtraPayment] = useState(null);
   const account = accounts.find((item) => item.id === accountId);
+  const loan = ledger.loans.find((item) => item.accountId === accountId);
 
   if (!account) {
     return (
@@ -120,6 +145,8 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
 
   const card = isCard(account);
   const cardTabsOn = card && cardReady(account);
+  const loanTabsOn = Boolean(loan);
+  const tabs = cardTabsOn ? cardTabs : loanTabsOn ? loanTabs : null;
   const breakdown = accountBreakdown(account, transactions);
   const rows = withRunningBalance(account, transactions);
   const lines = [
@@ -140,7 +167,7 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
         <p className="eyebrow">{[account.institution, accountTypeLabels[account.type]].filter(Boolean).join(' · ')}{account.archivedAt ? ' · Archivada' : ''}</p>
         <h1 className="hero-title">{account.name}</h1>
         <p className="hero-amount">
-          {card ? <><small>Deuda </small><DebtAmount balanceCents={breakdown.balance} /></> : <Amount cents={breakdown.balance} />}
+          {isDebt(account) ? <><small>Deuda </small><DebtAmount balanceCents={breakdown.balance} /></> : <Amount cents={breakdown.balance} />}
         </p>
         <details className="explain">
           <summary>¿De dónde sale este saldo?</summary>
@@ -163,9 +190,11 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
           </p>
         )}
         <div className="hero-actions">
-          <button type="button" className="btn btn-primary" onClick={() => onNewTransaction({ accountId: account.id, kind: card ? 'gasto' : undefined })}>
-            <Icon name="plus" size={18} /> Movimiento
-          </button>
+          {!loan && (
+            <button type="button" className="btn btn-primary" onClick={() => onNewTransaction({ accountId: account.id, kind: card ? 'gasto' : undefined })}>
+              <Icon name="plus" size={18} /> Movimiento
+            </button>
+          )}
           <button type="button" className="btn btn-secondary" onClick={() => setAdjusting(true)}>Ajustar saldo</button>
           <button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>Editar</button>
           <button type="button" className="btn btn-secondary" onClick={() => setConfirmArchive(true)}>{account.archivedAt ? 'Reactivar' : 'Archivar'}</button>
@@ -176,9 +205,9 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
         <p className="alert alert-info">Agrega el día de corte y el día máximo de pago (Editar) para ver tu estado de cuenta, cuánto pagar y tus diferidos.</p>
       )}
 
-      {cardTabsOn && (
-        <div className="chips tabs" role="tablist" aria-label="Secciones de la tarjeta">
-          {cardTabs.map(([key, label]) => (
+      {tabs && (
+        <div className="chips tabs" role="tablist" aria-label={loan ? 'Secciones del crédito' : 'Secciones de la tarjeta'}>
+          {tabs.map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key} className={`chip ${tab === key ? 'is-active' : ''}`} onClick={() => setTab(key)}>
               {label}
             </button>
@@ -198,7 +227,11 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
         />
       )}
 
-      {(!cardTabsOn || tab === 'movimientos') && (
+      {loan && tab === 'resumen' && <LoanSummary loan={loan} account={account} ledger={ledger} onExtra={() => setTab('simulador')} />}
+      {loan && tab === 'tabla' && <LoanTable loan={loan} account={account} ledger={ledger} />}
+      {loan && tab === 'simulador' && <LoanSimulator loan={loan} account={account} ledger={ledger} onRegister={setExtraPayment} />}
+
+      {(!tabs || tab === 'movimientos') && (
         <section className="card" aria-label="Movimientos de la cuenta">
           <TransactionList
             items={rows}
@@ -224,7 +257,21 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
         />
       )}
 
-      {editing && <AccountSheet existing={account} onSave={actions.saveAccount} onClose={() => setEditing(false)} />}
+      {editing && (loan
+        ? <LoanSheet existing={{ loan, account }} accounts={accounts} onSave={actions.saveLoan} onClose={() => setEditing(false)} />
+        : <AccountSheet existing={account} onSave={actions.saveAccount} onClose={() => setEditing(false)} />)}
+      {extraPayment && (
+        <ExtraPaymentSheet
+          loan={loan}
+          account={account}
+          accounts={accounts}
+          mode={extraPayment.mode}
+          cents={extraPayment.cents}
+          newPaymentCents={extraPayment.newPaymentCents}
+          onSave={actions.payLoanExtra}
+          onClose={() => setExtraPayment(null)}
+        />
+      )}
       {adjusting && <AdjustBalanceSheet account={account} currentCents={breakdown.balance} onSave={(values) => actions.saveTransaction(values)} onClose={() => setAdjusting(false)} />}
       {confirmArchive && (
         <ConfirmDialog

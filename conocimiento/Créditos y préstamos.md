@@ -6,6 +6,16 @@ modulo: 4B
 
 Tipos: bancario, de consumo, vehicular, hipotecario o préstamo personal (incluso entre familiares), con o sin intereses.
 
+## Implementado (fase 3, 2026-10-20)
+- `supabase/fase3b_creditos.sql` + `src/shared/lib/loans.js`. Cada crédito es una cuenta de tipo **Crédito o préstamo** (saldo negativo = deuda, resta en el patrimonio) con su ficha en `loans`.
+- **Crear** (Gestión → Crédito o préstamo):
+  - *Lo recibo ahora*: el dinero entra a una cuenta como **transferencia desde el crédito** (no es ingreso).
+  - *Ya lo estoy pagando*: la cuenta empieza hoy con lo que debes y las cuotas ya pagadas.
+  - La cuota se calcula (francés o alemán, tasa nominal o efectiva) y se puede reemplazar por la que cobra el banco. Vista previa: cuotas, total a pagar, intereses y seguros.
+- **Cuotas automáticas** el día de pago (tarea diaria): interés = deuda real antes de la cuota × tasa mensual → gasto en *Intereses y comisiones*; capital → transferencia hacia el crédito; seguros/cargos → gasto. Confirmadas si el banco debita solo; si no, quedan en "Por confirmar".
+- **Detalle**: Resumen (próxima cuota con su desglose, avance, intereses pagados y por pagar, total que falta), Tabla de pagos (pagadas + proyección), Abono extra (compara reducir plazo vs. reducir cuota y lo registra) y Movimientos.
+- **Avisos**: próxima cuota N días antes y cuota registrada.
+
 ## Datos
 | Campo | Notas |
 |---|---|

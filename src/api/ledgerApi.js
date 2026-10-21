@@ -26,6 +26,7 @@ function fromAccount(row) {
     dueDay: row.due_day,
     isSavings: row.is_savings,
     minPaymentPct: Number(row.min_payment_pct ?? 10),
+    deferralFactors: row.deferral_factors ?? {},
     color: row.color,
     sortOrder: row.sort_order,
     archivedAt: row.archived_at,
@@ -48,6 +49,7 @@ function toAccountRow(values) {
     day_basis: values.dayBasis ? Number(values.dayBasis) : null,
     capitalizes: values.capitalizes ?? true,
     min_payment_pct: values.minPaymentPct ?? 10,
+    deferral_factors: values.deferralFactors ?? {},
     color: values.color ?? 'purple',
   };
 }
@@ -79,6 +81,8 @@ function fromTransaction(row) {
     recurringId: row.recurring_id,
     occurrenceDate: row.occurrence_date,
     installmentId: row.installment_id,
+    loanId: row.loan_id,
+    loanNo: row.loan_no,
     createdAt: row.created_at,
     deletedAt: row.deleted_at,
   };
@@ -117,6 +121,58 @@ function fromInstallment(row) {
   };
 }
 
+function fromLoan(row) {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    kind: row.kind,
+    principalCents: toCents(row.principal),
+    annualRate: Number(row.annual_rate),
+    rateType: row.rate_type,
+    termMonths: row.term_months,
+    system: row.system,
+    firstPaymentDate: row.first_payment_date,
+    paymentDay: row.payment_day,
+    paidBefore: row.paid_before,
+    paymentAmountCents: toCents(row.payment_amount),
+    monthlyFeeCents: toCents(row.monthly_fee),
+    payAccountId: row.pay_account_id,
+    autoConfirm: row.auto_confirm,
+    archivedAt: row.archived_at,
+  };
+}
+
+function toLoanRow(values) {
+  return {
+    account_id: values.accountId,
+    kind: values.kind,
+    principal: centsToDb(values.principalCents),
+    annual_rate: values.annualRate,
+    rate_type: values.rateType,
+    term_months: values.termMonths,
+    system: values.system,
+    first_payment_date: values.firstPaymentDate,
+    payment_day: values.paymentDay,
+    paid_before: values.paidBefore,
+    payment_amount: centsToDb(values.paymentAmountCents),
+    monthly_fee: centsToDb(values.monthlyFeeCents),
+    pay_account_id: values.payAccountId,
+    auto_confirm: values.autoConfirm,
+  };
+}
+
+export async function createLoan(supabase, values) {
+  check(await supabase.from('loans').insert(toLoanRow(values)));
+}
+
+export async function updateLoan(supabase, id, values) {
+  check(await supabase.from('loans').update(toLoanRow(values)).eq('id', id));
+}
+
+export async function setLoanPayment(supabase, id, paymentAmountCents) {
+  check(await supabase.from('loans').update({ payment_amount: centsToDb(paymentAmountCents) }).eq('id', id));
+}
+
 function fromStatement(row) {
   return {
     id: row.id,
@@ -140,7 +196,7 @@ function fromNotification(row) {
   };
 }
 
-const defaultSettings = { telegramChatId: '', telegramEnabled: false, notifyDaysBefore: 2, cardUsageAlertPct: 30 };
+const defaultSettings = { telegramChatId: '', telegramEnabled: false, notifyDaysBefore: 2, cardUsageAlertPct: 30, monthlyIncomeCents: null };
 
 function fromSettings(row) {
   if (!row) return defaultSettings;
@@ -149,12 +205,13 @@ function fromSettings(row) {
     telegramEnabled: row.telegram_enabled,
     notifyDaysBefore: row.notify_days_before,
     cardUsageAlertPct: Number(row.card_usage_alert_pct),
+    monthlyIncomeCents: row.monthly_income === null || row.monthly_income === undefined ? null : toCents(row.monthly_income),
   };
 }
 
 // Ver countsForBalance en shared/lib/ledger.js: los movimientos anteriores al saldo inicial no lo cambian.
 export async function fetchLedger(supabase) {
-  const [accounts, categories, transactions, recurring, notifications, settings, installments, statements] = await Promise.all([
+  const [accounts, categories, transactions, recurring, notifications, settings, installments, statements, loans] = await Promise.all([
     supabase.from('accounts').select('*').order('sort_order').order('created_at'),
     supabase.from('categories').select('*').order('name'),
     supabase.from('transactions').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
@@ -163,6 +220,7 @@ export async function fetchLedger(supabase) {
     supabase.from('user_settings').select('*').maybeSingle(),
     supabase.from('card_installments').select('*').order('created_at'),
     supabase.from('card_statements').select('*'),
+    supabase.from('loans').select('*').order('created_at'),
   ]);
 
   return {
@@ -174,6 +232,7 @@ export async function fetchLedger(supabase) {
     settings: fromSettings(check(settings)),
     installments: check(installments).map(fromInstallment),
     statements: check(statements).map(fromStatement),
+    loans: check(loans).map(fromLoan),
   };
 }
 
@@ -238,6 +297,11 @@ export async function saveSettings(supabase, userId, values) {
     notify_days_before: Number(values.notifyDaysBefore),
     card_usage_alert_pct: Number(values.cardUsageAlertPct),
   }));
+}
+
+// Ingreso mensual para el % de endeudamiento (null = usar el promedio de los últimos meses).
+export async function saveMonthlyIncome(supabase, userId, cents) {
+  check(await supabase.from('user_settings').upsert({ user_id: userId, monthly_income: cents === null ? null : centsToDb(cents) }));
 }
 
 // Movimientos ----------------------------------------------------------------
@@ -317,8 +381,9 @@ export async function deleteForever(supabase, transaction) {
 
 // Cuentas --------------------------------------------------------------------
 
+// Devuelve el id (un crédito crea primero su cuenta y luego su ficha).
 export async function createAccount(supabase, values) {
-  check(await supabase.from('accounts').insert({ ...toAccountRow(values), sort_order: values.sortOrder ?? 0 }));
+  return check(await supabase.from('accounts').insert({ ...toAccountRow(values), sort_order: values.sortOrder ?? 0 }).select('id').single()).id;
 }
 
 export async function updateAccount(supabase, id, values) {

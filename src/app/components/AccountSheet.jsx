@@ -7,6 +7,12 @@ import { Field } from '../ui/Field';
 import { Sheet } from '../ui/Sheet';
 
 const interestTypes = ['ahorro', 'inversion', 'poliza'];
+// Plazos de diferido con intereses que suelen traer los estados de cuenta (factor = interés total del diferido).
+const FACTOR_MONTHS = [3, 6, 9, 12, 18, 24, 36, 48];
+
+function factorsToForm(factors = {}) {
+  return Object.fromEntries(FACTOR_MONTHS.map((months) => [months, factors[months] ? String(factors[months]).replace('.', ',') : '']));
+}
 
 function initialValues(existing, presetType = 'ahorro') {
   if (!existing) {
@@ -14,6 +20,7 @@ function initialValues(existing, presetType = 'ahorro') {
       name: '', institution: '', type: presetType, opening: '', openingNegative: false, openingDate: today(),
       isSavings: presetType === 'inversion' || presetType === 'poliza',
       creditLimit: '', statementDay: '', dueDay: '', interestRate: '', rateType: 'nominal', dayBasis: '360', capitalizes: true, minPaymentPct: '10',
+      deferralFactors: factorsToForm(),
     };
   }
   const isCardAccount = existing.type === 'tarjeta_credito';
@@ -34,6 +41,7 @@ function initialValues(existing, presetType = 'ahorro') {
     dayBasis: String(existing.dayBasis ?? 360),
     capitalizes: existing.capitalizes,
     minPaymentPct: String(existing.minPaymentPct ?? 10),
+    deferralFactors: factorsToForm(existing.deferralFactors),
   };
 }
 
@@ -41,7 +49,7 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
   const [form, setForm] = useState(() => initialValues(existing, presetType));
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
-  const [showInterest, setShowInterest] = useState(Boolean(existing?.interestRate));
+  const [showInterest, setShowInterest] = useState(Boolean(existing?.interestRate || Object.keys(existing?.deferralFactors ?? {}).length));
   const update = (patch) => setForm((current) => ({ ...current, ...patch }));
   const isCardAccount = form.type === 'tarjeta_credito';
   // En tarjetas la tasa sirve para los diferidos con intereses y para estimar el interés si no pagas el total.
@@ -68,6 +76,14 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
     if (form.interestRate !== '' && !(Number(String(form.interestRate).replace(',', '.')) >= 0)) next.interestRate = 'Tasa no válida.';
     const minPaymentPct = Number(String(form.minPaymentPct).replace(',', '.'));
     if (isCardAccount && !(minPaymentPct >= 0 && minPaymentPct <= 100)) next.minPaymentPct = 'Entre 0 y 100.';
+    const deferralFactors = {};
+    for (const months of FACTOR_MONTHS) {
+      const text = String(form.deferralFactors[months] ?? '').trim();
+      if (!text) continue;
+      const value = Number(text.replace(',', '.'));
+      if (value > 0 && value < 100) deferralFactors[months] = value;
+      else next.deferralFactors = `Factor no válido a ${months} meses (ejemplo: 8,76).`;
+    }
     setErrors(next);
     if (Object.keys(next).length) return;
 
@@ -88,6 +104,7 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
       dayBasis: allowsInterest && form.interestRate !== '' ? form.dayBasis : null,
       capitalizes: form.capitalizes,
       minPaymentPct: isCardAccount ? minPaymentPct : 10,
+      deferralFactors: isCardAccount ? deferralFactors : {},
       color: existing?.color,
     }, existing);
     setBusy(false);
@@ -119,7 +136,8 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
           <Field label="Tipo">
             {(props) => (
               <select {...props} className="input" value={form.type} onChange={(event) => changeType(event.target.value)}>
-                {Object.entries(accountTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                {/* Los créditos se crean desde Gestión (tienen tasa, plazo y cuotas). */}
+                {Object.entries(accountTypeLabels).filter(([value]) => value !== 'prestamo' || form.type === 'prestamo').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             )}
           </Field>
@@ -195,7 +213,27 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
               </Field>
             </div>
             {isCardAccount ? (
-              <p className="form-hint">La tasa anual que cobra la tarjeta (está en tu estado de cuenta). Se usa en los diferidos con intereses y para estimar cuánto cuesta no pagar el total.</p>
+              <>
+                <p className="form-hint">La tasa anual que cobra la tarjeta (está en tu estado de cuenta). Se usa para estimar cuánto cuesta no pagar el total y en diferidos a plazos sin factor.</p>
+                <p className="form-hint"><strong>Factores de diferido con intereses</strong> (sección "Crédito diferido" de tu estado de cuenta): interés total del diferido según el plazo.</p>
+                <div className="factor-grid">
+                  {FACTOR_MONTHS.map((months) => (
+                    <Field key={months} label={`${months} meses (%)`}>
+                      {(props) => (
+                        <input
+                          {...props}
+                          className="input"
+                          inputMode="decimal"
+                          placeholder="—"
+                          value={form.deferralFactors[months]}
+                          onChange={(event) => update({ deferralFactors: { ...form.deferralFactors, [months]: event.target.value } })}
+                        />
+                      )}
+                    </Field>
+                  ))}
+                </div>
+                {errors.deferralFactors && <p className="field-error" role="alert">{errors.deferralFactors}</p>}
+              </>
             ) : (
               <label className="check">
                 <input type="checkbox" checked={form.capitalizes} onChange={(event) => update({ capitalizes: event.target.checked })} />
@@ -204,7 +242,7 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
             )}
           </fieldset>
         ) : (
-          <button type="button" className="link" onClick={() => setShowInterest(true)}>+ Agregar tasa de interés</button>
+          <button type="button" className="link" onClick={() => setShowInterest(true)}>{isCardAccount ? '+ Agregar tasa y factores de diferido' : '+ Agregar tasa de interés'}</button>
         ))}
       </form>
     </Sheet>

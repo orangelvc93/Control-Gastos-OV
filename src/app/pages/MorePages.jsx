@@ -10,7 +10,8 @@ export function MorePage({ ledger, navigate, onLogout, userEmail }) {
   const trashCount = new Set(ledger.transactions.filter((item) => item.deletedAt).map((item) => item.transferId ?? item.id)).size;
   const links = [
     ['/dashboard', 'chart', 'Dashboard', 'Gráficas de ingresos, gastos, categorías, patrimonio y cuentas'],
-    ['/gestion', 'wallet', 'Gestión', 'Crear cuentas, tarjetas y gastos o ingresos frecuentes'],
+    ['/gestion', 'wallet', 'Gestión', 'Crear cuentas, tarjetas, créditos y gastos o ingresos frecuentes'],
+    ['/deudas', 'card', 'Plan para salir de deudas', 'Avalancha vs. bola de nieve y % de tus ingresos en deudas'],
     ['/avisos', 'bell', 'Avisos', 'Pagos próximos, frecuentes registrados y alertas'],
     ['/ajustes', 'bell', 'Avisos y Telegram', 'Cuándo avisarte y conectar tu Telegram'],
     ['/categorias', 'tag', 'Categorías', 'Crear y ordenar tus categorías de ingresos y gastos'],

@@ -1,4 +1,4 @@
-import { activeTransactions, isCard, monthKey, monthLabel, monthNames, shiftMonth } from './ledger';
+import { activeTransactions, isCard, isDebt, monthKey, monthLabel, monthNames, shiftMonth } from './ledger';
 
 // Datos para las gráficas del dashboard. Se calcula en centavos y se pasa a dólares solo al final.
 const toDollars = (cents) => Math.round(cents) / 100;
@@ -103,7 +103,7 @@ export function netWorthSeries(accounts, transactions, months, todayIso) {
 
 export function accountBalanceBars(accounts, balances) {
   return accounts
-    .filter((account) => !account.archivedAt && !isCard(account))
+    .filter((account) => !account.archivedAt && !isDebt(account))
     .map((account) => ({ name: account.name, value: toDollars(balances[account.id] ?? 0) }))
     .sort((a, b) => b.value - a.value);
 }

@@ -9,6 +9,7 @@ export const accountTypeLabels = {
   tarjeta_credito: 'Tarjeta de crédito',
   inversion: 'Inversión',
   poliza: 'Póliza',
+  prestamo: 'Crédito o préstamo',
 };
 
 export const sriCategoryLabels = {
@@ -31,6 +32,15 @@ export const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio'
 
 export function isCard(account) {
   return account.type === 'tarjeta_credito';
+}
+
+export function isLoan(account) {
+  return account.type === 'prestamo';
+}
+
+// Cuentas de deuda (tarjetas y créditos): su saldo es negativo y se muestra como "Deuda".
+export function isDebt(account) {
+  return isCard(account) || isLoan(account);
 }
 
 export function activeTransactions(transactions) {
@@ -69,16 +79,17 @@ export function balancesById(accounts, transactions) {
   return Object.fromEntries(accounts.map((account) => [account.id, accountBreakdown(account, transactions).balance]));
 }
 
-// Resumen general: patrimonio neto = lo que tengo − lo que debo (las tarjetas tienen saldo negativo).
+// Resumen general: patrimonio neto = lo que tengo − lo que debo (tarjetas y créditos tienen saldo negativo).
 export function netWorthSummary(accounts, balances) {
   const open = accounts.filter((account) => !account.archivedAt);
   const cards = open.filter(isCard);
-  const nonCards = open.filter((account) => !isCard(account));
+  const debts = open.filter(isDebt);
+  const nonCards = open.filter((account) => !isDebt(account));
   const savings = nonCards.filter((account) => account.isSavings);
   const available = nonCards.filter((account) => !account.isSavings);
   const total = (list) => sumCents(list, (account) => balances[account.id] ?? 0);
   const owned = total(nonCards);
-  const owed = -total(cards);
+  const owed = -total(debts);
 
   return {
     owned,

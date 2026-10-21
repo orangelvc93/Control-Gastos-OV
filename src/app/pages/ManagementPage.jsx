@@ -5,6 +5,7 @@ import { dueOccurrences, frequencyDetail, frequencyLabels, nextOccurrence } from
 import { AccountSheet } from '../components/AccountSheet';
 import { DueList } from '../components/DueList';
 import { RecurringSheet } from '../components/RecurringSheet';
+import { LoanSheet } from './LoanPanels';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Icon } from '../ui/Icon';
 
@@ -20,6 +21,7 @@ const accountShortcuts = [
 export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
   const { accounts, categories, recurring, transactions, actions } = ledger;
   const [accountType, setAccountType] = useState(null);
+  const [creatingLoan, setCreatingLoan] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState(null);
   const [pausing, setPausing] = useState(null);
   const [showDebitHelp, setShowDebitHelp] = useState(false);
@@ -49,6 +51,11 @@ export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
               <small>{hint}</small>
             </button>
           ))}
+          <button type="button" className="tile" onClick={() => setCreatingLoan(true)}>
+            <Icon name="wallet" />
+            <strong>Crédito o préstamo</strong>
+            <small>Banco, vehículo, casa o de un familiar</small>
+          </button>
           <button type="button" className="tile" onClick={() => setShowDebitHelp(!showDebitHelp)} aria-expanded={showDebitHelp}>
             <Icon name="card" />
             <strong>Tarjeta de débito</strong>
@@ -167,6 +174,7 @@ export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
           onClose={() => setPausing(null)}
         />
       )}
+      {creatingLoan && <LoanSheet accounts={accounts} onSave={actions.saveLoan} onClose={() => setCreatingLoan(false)} />}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { useHashRoute } from './useHashRoute';
 
 // Las gráficas (recharts) pesan: se descargan solo al abrir el dashboard.
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
+const DebtPlanPage = lazy(() => import('./pages/DebtPlanPage').then((module) => ({ default: module.DebtPlanPage })));
 const LegacyBook = lazy(() => import('../features/legacy/LegacyBook').then((module) => ({ default: module.LegacyBook })));
 
 const navItems = [
@@ -114,6 +115,12 @@ export function AppShell({ user, onLogout }) {
     page = (
       <Suspense fallback={<p className="page-loading" role="status">Cargando gráficas…</p>}>
         <DashboardPage {...pageProps} />
+      </Suspense>
+    );
+  } else if (path === '/deudas') {
+    page = (
+      <Suspense fallback={<p className="page-loading" role="status">Cargando plan…</p>}>
+        <DebtPlanPage {...pageProps} />
       </Suspense>
     );
   } else if (path === '/mas') {

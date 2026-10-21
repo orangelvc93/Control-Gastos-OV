@@ -1,6 +1,6 @@
 import { formatCents } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
-import { accountTypeLabels, activeTransactions, groupForList, isCard, monthKey, monthLabel, monthSummary, netWorthSummary } from '../../shared/lib/ledger';
+import { accountTypeLabels, activeTransactions, groupForList, isDebt, monthKey, monthLabel, monthSummary, netWorthSummary } from '../../shared/lib/ledger';
 import { dueOccurrences } from '../../shared/lib/recurring';
 import { DueList } from '../components/DueList';
 import { TransactionList } from '../components/TransactionList';
@@ -22,7 +22,7 @@ export function HomePage({ ledger, navigate, onSelectTransaction, onConfirmTrans
         <p className="eyebrow" id="net-worth-title">Patrimonio neto</p>
         <p className="hero-amount"><Amount cents={summary.netWorth} /></p>
         <p className="hero-explain">
-          Tienes {formatCents(summary.owned)} en tus cuentas − debes {formatCents(summary.owed)} en tarjetas.
+          Tienes {formatCents(summary.owned)} en tus cuentas − debes {formatCents(summary.owed)} en tarjetas y créditos.
         </p>
       </section>
 
@@ -38,9 +38,10 @@ export function HomePage({ ledger, navigate, onSelectTransaction, onConfirmTrans
           <span className="stat-hint">Ahorro e inversión</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Deuda en tarjetas</span>
+          <span className="stat-label">Deudas</span>
           <strong className="stat-value">{formatCents(summary.owed)}</strong>
           <span className="stat-hint">Cupo libre {formatCents(summary.creditAvailable)}</span>
+          {summary.owed > 0 && <a className="link stat-link" href="#/deudas">Plan para salir de deudas</a>}
         </div>
       </section>
 
@@ -110,9 +111,9 @@ export function HomePage({ ledger, navigate, onSelectTransaction, onConfirmTrans
                 <span className={`dot dot-${account.color}`} aria-hidden="true" />
                 <span className="account-mini-name">
                   {account.name}
-                  <small>{isCard(account) ? 'Deuda' : accountTypeLabels[account.type]}</small>
+                  <small>{isDebt(account) ? 'Deuda' : accountTypeLabels[account.type]}</small>
                 </span>
-                {isCard(account) ? <DebtAmount balanceCents={balances[account.id] ?? 0} /> : <Amount cents={balances[account.id] ?? 0} />}
+                {isDebt(account) ? <DebtAmount balanceCents={balances[account.id] ?? 0} /> : <Amount cents={balances[account.id] ?? 0} />}
               </button>
             </li>
           ))}

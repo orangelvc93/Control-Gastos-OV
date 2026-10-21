@@ -23,10 +23,10 @@ Orden pensado para que cada fase se apoye en la anterior. Pendiente de validar c
 - [[Movimientos recurrentes]] (frecuencias, "solo este / este y los siguientes").
 - [[Alertas]]: primero los avisos dentro de la app (campana e historial); después la app instalable (PWA) con notificaciones push y el bot de Telegram.
 
-## Fase 3 · Deudas
-- [[Créditos y préstamos]] con tabla de amortización y simulador de abonos.
+## Fase 3 · Deudas ✅ (2026-10-20)
+- [[Créditos y préstamos]] con tabla de amortización y simulador de abonos. ✅ (2026-10-20)
 - [[Tarjetas de crédito]] con consumos, diferidos y estado de cuenta. ✅ (2026-10-20)
-- [[Plan para salir de deudas]] (avalancha vs. bola de nieve).
+- [[Plan para salir de deudas]] (avalancha vs. bola de nieve). ✅ (2026-10-20)
 
 ## Fase 4 · Ahorro e intereses
 - [[Intereses]] con tipo de tasa, capitalización, retención y proyección.

@@ -35,8 +35,14 @@ App nueva, primero para celular y como **web app instalable (PWA)**:
 - Ver [[Tarjetas de crédito#Implementado (fase 3, 2026-10-20)]]: diferidos con y sin intereses, estado de cuenta por corte, pago guiado, mínimo anotado o estimado, avisos de corte / pago / atraso.
 - Detalle de la tarjeta con pestañas: Resumen, Estado de cuenta, Diferidos y Movimientos. La cuenta tarjeta tiene tasa anual y % de mínimo estimado.
 
+## Fase 3 · Créditos (2026-10-20)
+- Ver [[Créditos y préstamos#Implementado (fase 3, 2026-10-20)]]: cuenta de deuda + cuotas automáticas (interés gasto, capital transferencia), tabla de pagos y simulador de abonos.
+- Tarjeta: factores de diferido del banco por plazo.
+
+## Fase 3 · Plan de deudas (2026-10-20)
+- Ver [[Plan para salir de deudas#Implementado (fase 3, 2026-10-20)]]: % de ingresos en deudas, avalancha vs. bola de nieve, simulador antes de endeudarte y aviso de endeudamiento alto.
+
 ## Pendiente según la [[Hoja de ruta]]
-- Fase 3: [[Créditos y préstamos]] y [[Plan para salir de deudas]].
 - Fase 4: [[Intereses]] calculados, [[Plan de ahorro]] 50/30/20, [[Metas de ahorro]].
 - Fase 5: [[Facturas y gastos deducibles]], [[Reportes y exportación]], [[Exportación para el SRI]].
 - Fase 6: [[Lista de compras]].

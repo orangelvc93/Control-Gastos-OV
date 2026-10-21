@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { cardReady, cutOnOrAfter, installmentSchedule, monthlyRate } from '../../shared/lib/cards';
+import { canChargeInterest, cardReady, cutOnOrAfter, deferralFactor, installmentSchedule, monthlyRate } from '../../shared/lib/cards';
 import { centsToInput, formatCents, parseAmountInput, sumCents } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
-import { isCard } from '../../shared/lib/ledger';
+import { isCard, isDebt } from '../../shared/lib/ledger';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { DateField } from '../ui/DateField';
 import { Field } from '../ui/Field';
@@ -36,7 +36,7 @@ function rememberAccount(id) {
 function initialValues(existing, accounts, defaults) {
   const open = accounts.filter((account) => !account.archivedAt);
   const fallbackAccount = open.find((account) => account.id === (defaults.accountId ?? readLastAccount()))
-    ?? open.find((account) => !account.isSavings && !isCard(account))
+    ?? open.find((account) => !account.isSavings && !isDebt(account))
     ?? open[0];
 
   if (!existing) {
@@ -74,9 +74,11 @@ function DeferredFields({ form, account, error, update }) {
   const rate = monthlyRate(account);
   const cents = parseAmountInput(form.amount);
   const months = Number(form.months);
+  const factor = deferralFactor(account, months);
+  const interestOk = canChargeInterest(account, months);
   const valid = Number.isFinite(cents) && cents > 0 && months >= 2 && months <= 60 && form.date;
   const rows = valid && form.payMode === 'diferido'
-    ? installmentSchedule({ principalCents: cents, months, withInterest: form.withInterest && Boolean(rate), firstCut: cutOnOrAfter(form.date, account.statementDay) }, account)
+    ? installmentSchedule({ principalCents: cents, months, withInterest: form.withInterest && interestOk, firstCut: cutOnOrAfter(form.date, account.statementDay) }, account)
     : [];
   const interest = sumCents(rows, (row) => row.interest);
 
@@ -103,10 +105,14 @@ function DeferredFields({ form, account, error, update }) {
           </div>
           {error && <p className="field-error" role="alert">{error}</p>}
           <label className="check">
-            <input type="checkbox" checked={form.withInterest} onChange={(event) => update({ withInterest: event.target.checked })} disabled={!rate} />
+            <input type="checkbox" checked={form.withInterest} onChange={(event) => update({ withInterest: event.target.checked })} disabled={!interestOk} />
             <span>
               Con intereses
-              {rate ? ` (tasa de la tarjeta: ${account.interestRate.toLocaleString('es-EC')} % anual)` : ' (agrega la tasa de la tarjeta en Editar para usarlo)'}
+              {factor
+                ? ` (factor del banco a ${months} meses: ${factor.toLocaleString('es-EC')} %)`
+                : rate
+                  ? ` (tasa de la tarjeta: ${account.interestRate.toLocaleString('es-EC')} % anual)`
+                  : ' (agrega en Editar el factor del banco o la tasa de la tarjeta para usarlo)'}
             </span>
           </label>
           {rows.length > 0 && (
@@ -197,7 +203,7 @@ export function TransactionSheet({
       occurrenceDate: existing ? undefined : defaults.occurrenceDate,
       // undefined: no aplica (no es compra con tarjeta y no tenía diferido); null: corriente.
       installment: deferred
-        ? { months: Number(form.months), withInterest: form.withInterest && Boolean(monthlyRate(selectedAccount)) }
+        ? { months: Number(form.months), withInterest: form.withInterest && canChargeInterest(selectedAccount, Number(form.months)) }
         : (cardPurchase || existingPlan ? null : undefined),
     };
 

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
-  activePlans, cardStatus, cutOnOrBefore, partialPaymentInterest, planSummary, shiftCut, statementCuts, statementFor,
+  activePlans, canChargeInterest, cardStatus, cutOnOrBefore, partialPaymentInterest, planSummary, shiftCut, statementCuts, statementFor,
 } from '../../shared/lib/cards';
 import { centsToInput, formatCents, parseAmountInput, sumCents } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
-import { isCard } from '../../shared/lib/ledger';
+import { isDebt } from '../../shared/lib/ledger';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { DateField } from '../ui/DateField';
 import { Field } from '../ui/Field';
@@ -270,7 +270,7 @@ export function InstallmentsView({ account, ledger, onOpenPurchase, onAddExistin
 // Formularios -------------------------------------------------------------------------
 
 export function PayCardSheet({ account, accounts, ledger, status, onSave, onClose }) {
-  const sources = accounts.filter((item) => !item.archivedAt && !isCard(item));
+  const sources = accounts.filter((item) => !item.archivedAt && !isDebt(item));
   const statement = status.statement;
   const debt = -(ledger.balances[account.id] ?? 0);
   const options = statement
@@ -441,7 +441,7 @@ export function ExistingInstallmentSheet({ account, existing, onSave, onDelete, 
     setBusy(true);
     const saved = await onSave({
       accountId: account.id, transactionId: null, description: form.description, principalCents, months,
-      withInterest: form.withInterest && Boolean(account.interestRate), firstCut, inOpening: true,
+      withInterest: form.withInterest && canChargeInterest(account, months), firstCut, inOpening: true,
     }, existing);
     setBusy(false);
     if (saved) onClose();
@@ -481,8 +481,8 @@ export function ExistingInstallmentSheet({ account, existing, onSave, onDelete, 
             {(props) => <input {...props} className="input" inputMode="numeric" value={form.billed} onChange={(event) => update({ billed: event.target.value })} />}
           </Field>
           <label className="check">
-            <input type="checkbox" checked={form.withInterest} onChange={(event) => update({ withInterest: event.target.checked })} disabled={!account.interestRate} />
-            <span>Con intereses{account.interestRate ? ` (tasa de la tarjeta: ${account.interestRate.toLocaleString('es-EC')} % anual)` : ' (agrega la tasa de la tarjeta para usarlo)'}</span>
+            <input type="checkbox" checked={form.withInterest} onChange={(event) => update({ withInterest: event.target.checked })} disabled={!canChargeInterest(account, Number(form.months))} />
+            <span>Con intereses (se usa el factor del banco para ese plazo o, si no lo tiene, la tasa de la tarjeta)</span>
           </label>
         </form>
       </Sheet>

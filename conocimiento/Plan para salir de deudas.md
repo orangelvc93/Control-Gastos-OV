@@ -4,6 +4,15 @@ modulo: 4B
 ---
 # Plan para salir de deudas
 
+## Implementado (fase 3, 2026-10-20)
+- Pantalla **Más → Plan para salir de deudas** (`/deudas`, también desde Inicio → Deudas). Cálculos en `src/shared/lib/debts.js`; aviso en `supabase/fase3c_deudas.sql`.
+- Indicadores: deuda total, pago mensual (cuotas de créditos con seguros + mínimo estimado de tarjetas, al menos $10) y **% de ingresos**: sano hasta 30 %, con cuidado 30–35 %, alto > 35 %.
+- Ingreso mensual: el que anotas (se guarda en `user_settings.monthly_income`) o el promedio de ingresos confirmados de los últimos 3 meses completos.
+- Simulación mes a mes con dinero extra: interés del mes → mínimos → el extra (más los pagos de las deudas ya terminadas) va a la prioritaria. **Avalancha** (mayor tasa) vs. **bola de nieve** (menor saldo) vs. solo mínimos: tiempo, fecha, intereses, orden en que se termina cada deuda y gráfica del saldo total (con vista de tabla).
+- **Antes de endeudarte**: cuota de un crédito/diferido nuevo y cómo cambia el % de endeudamiento.
+- Aviso mensual `deuda-alta` si las cuotas superan el 35 % del ingreso.
+- Limitación: las tarjetas se simulan como saldo revolvente con su mínimo (no separa diferidos); sin tasa anotada se tratan sin intereses.
+
 ## Vista consolidada
 Todas las deudas ([[Tarjetas de crédito]] + [[Créditos y préstamos]]): saldo, tasa, cuota mensual y fecha estimada de fin de pago de cada una.
 

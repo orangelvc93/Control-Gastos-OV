@@ -57,9 +57,42 @@ export function monthlyRate(account) {
   return account.rateType === 'efectiva' ? (1 + annual) ** (1 / 12) - 1 : annual / 12;
 }
 
+// Factor del banco para diferidos con intereses (interés total = monto × factor), si la tarjeta lo tiene para ese plazo.
+export function deferralFactor(account, months) {
+  const factor = Number(account.deferralFactors?.[months]);
+  return factor > 0 ? factor : null;
+}
+
+// ¿Se puede diferir con intereses a ese plazo? Hace falta el factor del banco o la tasa de la tarjeta.
+export function canChargeInterest(account, months) {
+  return Boolean(deferralFactor(account, months) || monthlyRate(account));
+}
+
+// Reparte un total en n partes enteras; el sobrante va en la última.
+function split(total, parts) {
+  const base = Math.floor(total / parts);
+  return Array.from({ length: parts }, (_, index) => (index === parts - 1 ? total - base * (parts - 1) : base));
+}
+
 // Cuotas de un diferido: n.º, corte en que se cobra, capital, interés y saldo después.
-// Sin intereses: cuotas iguales (el centavo que sobra va en la última). Con intereses: sistema francés.
+// Sin intereses: cuotas iguales (el centavo que sobra va en la última).
+// Con intereses: con el factor del banco (interés total = monto × factor, repartido en cuotas iguales);
+// si la tarjeta no tiene factor para ese plazo, sistema francés con la tasa de la tarjeta.
 export function installmentSchedule(plan, account) {
+  const factor = plan.withInterest ? deferralFactor(account, plan.months) : null;
+  if (factor) {
+    const capitals = split(plan.principalCents, plan.months);
+    const interests = split(Math.round((plan.principalCents * factor) / 100), plan.months);
+    let left = plan.principalCents;
+    return capitals.map((capital, index) => {
+      left -= capital;
+      return {
+        n: index + 1, cut: shiftCut(plan.firstCut, index, account.statementDay), capital, interest: interests[index],
+        payment: capital + interests[index], balanceAfter: left,
+      };
+    });
+  }
+
   const rate = plan.withInterest ? monthlyRate(account) : null;
   const rows = [];
   let balance = plan.principalCents;
