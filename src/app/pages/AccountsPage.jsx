@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { cardReady } from '../../shared/lib/cards';
 import { formatCents, sumCents } from '../../shared/lib/cents';
 import { accountBreakdown, accountTypeLabels, isCard, withRunningBalance } from '../../shared/lib/ledger';
 import { AccountSheet, AdjustBalanceSheet } from '../components/AccountSheet';
@@ -6,6 +7,9 @@ import { TransactionList } from '../components/TransactionList';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Amount, DebtAmount } from '../ui/Field';
 import { Icon } from '../ui/Icon';
+import {
+  cardTabs, CardSummary, ExistingInstallmentSheet, InstallmentsView, PayCardSheet, StatementNoteSheet, StatementView,
+} from './CardPanels';
 
 function AccountCard({ account, balance, onOpen }) {
   const card = isCard(account);
@@ -99,6 +103,10 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
   const [editing, setEditing] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [tab, setTab] = useState('resumen');
+  const [paying, setPaying] = useState(null);
+  const [noting, setNoting] = useState(null);
+  const [installmentSheet, setInstallmentSheet] = useState(null);
   const account = accounts.find((item) => item.id === accountId);
 
   if (!account) {
@@ -111,6 +119,7 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
   }
 
   const card = isCard(account);
+  const cardTabsOn = card && cardReady(account);
   const breakdown = accountBreakdown(account, transactions);
   const rows = withRunningBalance(account, transactions);
   const lines = [
@@ -163,17 +172,57 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
         </div>
       </section>
 
-      <section className="card" aria-label="Movimientos de la cuenta">
-        <TransactionList
-          items={rows}
-          accounts={accounts}
-          categories={categories}
-          onSelect={onSelectTransaction}
-          accountView
-          debtView={card}
-          emptyText="Sin movimientos todavía. El saldo es el saldo inicial."
+      {card && !cardReady(account) && (
+        <p className="alert alert-info">Agrega el día de corte y el día máximo de pago (Editar) para ver tu estado de cuenta, cuánto pagar y tus diferidos.</p>
+      )}
+
+      {cardTabsOn && (
+        <div className="chips tabs" role="tablist" aria-label="Secciones de la tarjeta">
+          {cardTabs.map(([key, label]) => (
+            <button key={key} type="button" role="tab" aria-selected={tab === key} className={`chip ${tab === key ? 'is-active' : ''}`} onClick={() => setTab(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {cardTabsOn && tab === 'resumen' && <CardSummary account={account} ledger={ledger} onPay={setPaying} onNote={setNoting} />}
+      {cardTabsOn && tab === 'estado' && <StatementView account={account} ledger={ledger} categories={categories} onNote={setNoting} />}
+      {cardTabsOn && tab === 'diferidos' && (
+        <InstallmentsView
+          account={account}
+          ledger={ledger}
+          onOpenPurchase={onSelectTransaction}
+          onAddExisting={() => setInstallmentSheet({})}
+          onEditExisting={(plan) => setInstallmentSheet({ existing: plan })}
         />
-      </section>
+      )}
+
+      {(!cardTabsOn || tab === 'movimientos') && (
+        <section className="card" aria-label="Movimientos de la cuenta">
+          <TransactionList
+            items={rows}
+            accounts={accounts}
+            categories={categories}
+            onSelect={onSelectTransaction}
+            accountView
+            debtView={card}
+            emptyText="Sin movimientos todavía. El saldo es el saldo inicial."
+          />
+        </section>
+      )}
+
+      {paying && <PayCardSheet account={account} accounts={accounts} ledger={ledger} status={paying} onSave={actions.payCard} onClose={() => setPaying(null)} />}
+      {noting && <StatementNoteSheet account={account} statement={noting} onSave={actions.saveStatement} onClose={() => setNoting(null)} />}
+      {installmentSheet && (
+        <ExistingInstallmentSheet
+          account={account}
+          existing={installmentSheet.existing}
+          onSave={actions.saveInstallment}
+          onDelete={actions.archiveInstallment}
+          onClose={() => setInstallmentSheet(null)}
+        />
+      )}
 
       {editing && <AccountSheet existing={account} onSave={actions.saveAccount} onClose={() => setEditing(false)} />}
       {adjusting && <AdjustBalanceSheet account={account} currentCents={breakdown.balance} onSave={(values) => actions.saveTransaction(values)} onClose={() => setAdjusting(false)} />}

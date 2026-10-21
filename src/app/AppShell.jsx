@@ -207,6 +207,7 @@ export function AppShell({ user, onLogout }) {
           defaults={sheet.defaults}
           accounts={ledger.accounts}
           categories={ledger.categories}
+          installments={ledger.installments}
           onSave={ledger.actions.saveTransaction}
           onSaveFollowing={ledger.actions.saveTransactionAndFollowing}
           onReplace={ledger.actions.replaceTransaction}

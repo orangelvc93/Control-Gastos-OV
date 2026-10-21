@@ -1431,6 +1431,7 @@
 .segment-ingreso.is-active { box-shadow: inset 0 -2px 0 var(--c-positive); }
 .segment-transferencia.is-active { box-shadow: inset 0 -2px 0 var(--c-accent); }
 
+.segmented-2,
 .apply-scope .segmented {
   grid-template-columns: repeat(2, 1fr);
 }
@@ -1571,5 +1572,215 @@
     scroll-behavior: auto !important;
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Tarjetas de crédito: resumen, estado de cuenta y diferidos ------------- */
+
+.tabs {
+  margin-top: calc(var(--space-1) * -1);
+}
+
+.pay-card {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.pay-card .eyebrow {
+  margin: 0;
+}
+
+.pay-amount {
+  align-items: center;
+  display: flex;
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  gap: var(--space-2);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.pay-ok {
+  color: var(--c-positive);
+}
+
+.pay-due {
+  color: var(--c-muted);
+  margin: 0;
+}
+
+.pay-atrasado {
+  border-color: rgba(251, 113, 133, 0.45);
+}
+
+.figures {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: var(--space-2) 0 0;
+}
+
+.figures div {
+  background: var(--c-surface-2);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.figures dt {
+  color: var(--c-muted);
+  font-size: var(--fs-xs);
+}
+
+.figures dd {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  margin: 0;
+}
+
+.statement-head h2 {
+  font-size: var(--fs-md, 1rem);
+}
+
+.statement-lines {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+
+.statement-lines > div {
+  align-items: start;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.statement-lines dt {
+  color: var(--c-muted);
+  flex: 1;
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+
+.statement-lines dd {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.statement-lines summary {
+  cursor: pointer;
+}
+
+.statement-lines ul {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0 0 0 var(--space-3);
+}
+
+.statement-lines li {
+  color: var(--c-subtle);
+  display: flex;
+  font-size: var(--fs-xs);
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.statement-total {
+  border-top: 1px solid var(--c-border-strong);
+  padding-top: var(--space-2);
+}
+
+.statement-total dt,
+.statement-total dd {
+  color: var(--c-text);
+  font-size: var(--fs-md, 1rem);
+  font-weight: 800;
+}
+
+.plan-list {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plan-list li {
+  border-bottom: 1px solid var(--c-border);
+}
+
+.plan-list li:last-child {
+  border-bottom: 0;
+}
+
+.plan-row {
+  align-items: center;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 60px;
+  padding: var(--space-2) 0;
+  text-align: left;
+  width: 100%;
+}
+
+.plan-figures {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
+
+.plan-figures strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-figures small {
+  color: var(--c-subtle);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+.choice-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.choice {
+  align-items: center;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  color: var(--c-text);
+  display: flex;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  text-align: left;
+}
+
+.choice.is-active {
+  border-color: var(--c-primary-strong);
+  box-shadow: inset 0 0 0 1px var(--c-primary-strong);
+}
+
+.choice strong {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 420px) {
+  .figures {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .figures div {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
   }
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../api/supabaseClient';
 import * as api from '../api/ledgerApi';
+import { cutOnOrAfter } from '../shared/lib/cards';
 import { addDays } from '../shared/lib/date';
 import { balancesById } from '../shared/lib/ledger';
 
@@ -28,7 +29,9 @@ function friendlyError(error) {
 // Estado del libro contable. Cada acción guarda solo lo que cambió y luego recarga (son pocas filas).
 // Las acciones devuelven true/false para que los formularios no se cierren si falla el guardado.
 export function useLedger(userId, notify) {
-  const [ledger, setLedger] = useState({ accounts: [], categories: [], transactions: [], recurring: [], notifications: [], settings: null });
+  const [ledger, setLedger] = useState({
+    accounts: [], categories: [], transactions: [], recurring: [], notifications: [], settings: null, installments: [], statements: [],
+  });
   const [status, setStatus] = useState('loading');
   const [loadError, setLoadError] = useState('');
 
@@ -81,13 +84,37 @@ export function useLedger(userId, notify) {
   )), [ledger.transactions]);
 
   const actions = useMemo(() => {
-    function saveOne(values, existing) {
+    // Compra diferida con tarjeta: values.installment = { months, withInterest }; null = corriente.
+    // El diferido se guarda aparte y se cobra desde el corte que incluye la fecha de compra.
+    async function syncInstallment(values, transactionId) {
+      const plan = ledger.installments.find((item) => item.transactionId === transactionId && !item.archivedAt);
+      if (!values.installment) {
+        if (plan) await api.setInstallmentArchived(supabase, plan.id, true);
+        return;
+      }
+      const account = ledger.accounts.find((item) => item.id === values.accountId);
+      const planValues = {
+        accountId: values.accountId,
+        transactionId,
+        description: values.description,
+        principalCents: Math.abs(values.cents),
+        months: values.installment.months,
+        withInterest: values.installment.withInterest,
+        firstCut: cutOnOrAfter(values.date, account.statementDay),
+      };
+      await (plan ? api.updateInstallment(supabase, plan.id, planValues) : api.createInstallment(supabase, planValues));
+    }
+
+    async function saveOne(values, existing) {
       if (values.kind === 'transferencia') {
         return existing?.transferId
           ? api.updateTransfer(supabase, existing.transferId, values)
           : api.createTransfer(supabase, values);
       }
-      return existing ? api.updateTransaction(supabase, existing.id, values) : api.createTransaction(supabase, values);
+      if (existing) await api.updateTransaction(supabase, existing.id, values);
+      const id = existing ? existing.id : await api.createTransaction(supabase, values);
+      if (values.installment !== undefined) await syncInstallment(values, id);
+      return id;
     }
 
     return {
@@ -171,8 +198,16 @@ export function useLedger(userId, notify) {
       },
       archiveRecurring: (item, archived) => run(() => api.setRecurringArchived(supabase, item.id, archived), archived ? 'Frecuente pausado' : 'Frecuente reactivado'),
       archiveCategory: (category, archived) => run(() => api.setCategoryArchived(supabase, category.id, archived), archived ? 'Categoría archivada' : 'Categoría reactivada'),
+      // Diferidos que ya tenías al empezar (no tienen compra: su saldo está en el saldo inicial de la tarjeta).
+      saveInstallment: (values, existing) => run(
+        () => (existing ? api.updateInstallment(supabase, existing.id, values) : api.createInstallment(supabase, values)),
+        existing ? 'Diferido actualizado' : 'Diferido agregado',
+      ),
+      archiveInstallment: (plan) => run(() => api.setInstallmentArchived(supabase, plan.id, true), 'Diferido eliminado'),
+      saveStatement: (values) => run(() => api.saveStatement(supabase, values), 'Estado de cuenta anotado'),
+      payCard: (values) => run(() => api.createTransfer(supabase, values), 'Pago de la tarjeta registrado'),
     };
-  }, [run, reload, notify, userId, laterOccurrences]);
+  }, [run, reload, notify, userId, laterOccurrences, ledger.accounts, ledger.installments]);
 
   return { ...ledger, balances, status, loadError, reload, actions };
 }

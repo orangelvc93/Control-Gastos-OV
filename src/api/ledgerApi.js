@@ -25,6 +25,7 @@ function fromAccount(row) {
     statementDay: row.statement_day,
     dueDay: row.due_day,
     isSavings: row.is_savings,
+    minPaymentPct: Number(row.min_payment_pct ?? 10),
     color: row.color,
     sortOrder: row.sort_order,
     archivedAt: row.archived_at,
@@ -46,6 +47,7 @@ function toAccountRow(values) {
     rate_type: values.rateType || null,
     day_basis: values.dayBasis ? Number(values.dayBasis) : null,
     capitalizes: values.capitalizes ?? true,
+    min_payment_pct: values.minPaymentPct ?? 10,
     color: values.color ?? 'purple',
   };
 }
@@ -76,6 +78,7 @@ function fromTransaction(row) {
     note: row.note ?? '',
     recurringId: row.recurring_id,
     occurrenceDate: row.occurrence_date,
+    installmentId: row.installment_id,
     createdAt: row.created_at,
     deletedAt: row.deleted_at,
   };
@@ -96,6 +99,31 @@ function fromRecurring(row) {
     note: row.note ?? '',
     fixedAmount: row.fixed_amount,
     archivedAt: row.archived_at,
+  };
+}
+
+function fromInstallment(row) {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    transactionId: row.transaction_id,
+    description: row.description ?? '',
+    principalCents: toCents(row.principal),
+    months: row.months,
+    withInterest: row.with_interest,
+    firstCut: row.first_cut,
+    inOpening: row.in_opening,
+    archivedAt: row.archived_at,
+  };
+}
+
+function fromStatement(row) {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    cutDate: row.cut_date,
+    minPaymentCents: row.min_payment === null ? null : toCents(row.min_payment),
+    bankTotalCents: row.bank_total === null ? null : toCents(row.bank_total),
   };
 }
 
@@ -126,13 +154,15 @@ function fromSettings(row) {
 
 // Ver countsForBalance en shared/lib/ledger.js: los movimientos anteriores al saldo inicial no lo cambian.
 export async function fetchLedger(supabase) {
-  const [accounts, categories, transactions, recurring, notifications, settings] = await Promise.all([
+  const [accounts, categories, transactions, recurring, notifications, settings, installments, statements] = await Promise.all([
     supabase.from('accounts').select('*').order('sort_order').order('created_at'),
     supabase.from('categories').select('*').order('name'),
     supabase.from('transactions').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
     supabase.from('recurring_items').select('*').order('name'),
     supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(60),
     supabase.from('user_settings').select('*').maybeSingle(),
+    supabase.from('card_installments').select('*').order('created_at'),
+    supabase.from('card_statements').select('*'),
   ]);
 
   return {
@@ -142,7 +172,46 @@ export async function fetchLedger(supabase) {
     recurring: check(recurring).map(fromRecurring),
     notifications: check(notifications).map(fromNotification),
     settings: fromSettings(check(settings)),
+    installments: check(installments).map(fromInstallment),
+    statements: check(statements).map(fromStatement),
   };
+}
+
+// Tarjetas: diferidos y estados de cuenta -----------------------------------------
+
+function toInstallmentRow(values) {
+  return {
+    account_id: values.accountId,
+    transaction_id: values.transactionId ?? null,
+    description: values.description.trim(),
+    principal: centsToDb(values.principalCents),
+    months: values.months,
+    with_interest: Boolean(values.withInterest),
+    first_cut: values.firstCut,
+    in_opening: Boolean(values.inOpening),
+  };
+}
+
+export async function createInstallment(supabase, values) {
+  check(await supabase.from('card_installments').insert(toInstallmentRow(values)));
+}
+
+export async function updateInstallment(supabase, id, values) {
+  check(await supabase.from('card_installments').update(toInstallmentRow(values)).eq('id', id));
+}
+
+export async function setInstallmentArchived(supabase, id, archived) {
+  check(await supabase.from('card_installments').update({ archived_at: archived ? new Date().toISOString() : null }).eq('id', id));
+}
+
+// Lo anotado del estado del banco (mínimo y total); vacío = se estima.
+export async function saveStatement(supabase, values) {
+  check(await supabase.from('card_statements').upsert({
+    account_id: values.accountId,
+    cut_date: values.cutDate,
+    min_payment: values.minPaymentCents === null ? null : centsToDb(values.minPaymentCents),
+    bank_total: values.bankTotalCents === null ? null : centsToDb(values.bankTotalCents),
+  }, { onConflict: 'account_id,cut_date' }));
 }
 
 // Avisos y automatización --------------------------------------------------------
@@ -173,8 +242,9 @@ export async function saveSettings(supabase, userId, values) {
 
 // Movimientos ----------------------------------------------------------------
 
+// Devuelve el id (lo necesita el diferido de una compra con tarjeta).
 export async function createTransaction(supabase, values) {
-  check(await supabase.from('transactions').insert({
+  return check(await supabase.from('transactions').insert({
     account_id: values.accountId,
     date: values.date,
     amount: centsToDb(values.cents),
@@ -185,7 +255,7 @@ export async function createTransaction(supabase, values) {
     note: values.note.trim(),
     recurring_id: values.recurringId ?? null,
     occurrence_date: values.occurrenceDate ?? null,
-  }));
+  }).select('id').single()).id;
 }
 
 export async function updateTransaction(supabase, id, values) {

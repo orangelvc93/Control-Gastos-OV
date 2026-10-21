@@ -13,7 +13,7 @@ function initialValues(existing, presetType = 'ahorro') {
     return {
       name: '', institution: '', type: presetType, opening: '', openingNegative: false, openingDate: today(),
       isSavings: presetType === 'inversion' || presetType === 'poliza',
-      creditLimit: '', statementDay: '', dueDay: '', interestRate: '', rateType: 'nominal', dayBasis: '360', capitalizes: true,
+      creditLimit: '', statementDay: '', dueDay: '', interestRate: '', rateType: 'nominal', dayBasis: '360', capitalizes: true, minPaymentPct: '10',
     };
   }
   const isCardAccount = existing.type === 'tarjeta_credito';
@@ -33,6 +33,7 @@ function initialValues(existing, presetType = 'ahorro') {
     rateType: existing.rateType ?? 'nominal',
     dayBasis: String(existing.dayBasis ?? 360),
     capitalizes: existing.capitalizes,
+    minPaymentPct: String(existing.minPaymentPct ?? 10),
   };
 }
 
@@ -43,7 +44,8 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
   const [showInterest, setShowInterest] = useState(Boolean(existing?.interestRate));
   const update = (patch) => setForm((current) => ({ ...current, ...patch }));
   const isCardAccount = form.type === 'tarjeta_credito';
-  const allowsInterest = interestTypes.includes(form.type);
+  // En tarjetas la tasa sirve para los diferidos con intereses y para estimar el interés si no pagas el total.
+  const allowsInterest = interestTypes.includes(form.type) || isCardAccount;
 
   function changeType(type) {
     update({ type, isSavings: type === 'inversion' || type === 'poliza' ? true : form.isSavings });
@@ -64,6 +66,8 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
       if (value !== null && !(Number.isInteger(value) && value >= 1 && value <= 31)) next[key] = 'Día entre 1 y 31.';
     }
     if (form.interestRate !== '' && !(Number(String(form.interestRate).replace(',', '.')) >= 0)) next.interestRate = 'Tasa no válida.';
+    const minPaymentPct = Number(String(form.minPaymentPct).replace(',', '.'));
+    if (isCardAccount && !(minPaymentPct >= 0 && minPaymentPct <= 100)) next.minPaymentPct = 'Entre 0 y 100.';
     setErrors(next);
     if (Object.keys(next).length) return;
 
@@ -83,6 +87,7 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
       rateType: allowsInterest && form.interestRate !== '' ? form.rateType : null,
       dayBasis: allowsInterest && form.interestRate !== '' ? form.dayBasis : null,
       capitalizes: form.capitalizes,
+      minPaymentPct: isCardAccount ? minPaymentPct : 10,
       color: existing?.color,
     }, existing);
     setBusy(false);
@@ -159,10 +164,15 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
             </Field>
           </div>
         )}
+        {isCardAccount && (
+          <Field label="Pago mínimo estimado (% de lo que debes pagar)" error={errors.minPaymentPct} hint="Se usa solo si no anotas el mínimo de tu estado de cuenta.">
+            {(props) => <input {...props} className="input" inputMode="decimal" value={form.minPaymentPct} onChange={(event) => update({ minPaymentPct: event.target.value })} />}
+          </Field>
+        )}
 
         {allowsInterest && (showInterest ? (
           <fieldset className="fieldset">
-            <legend>Intereses</legend>
+            <legend>{isCardAccount ? 'Tasa de la tarjeta' : 'Intereses'}</legend>
             <div className="field-row">
               <Field label="Tasa anual (%)" error={errors.interestRate}>
                 {(props) => <input {...props} className="input" inputMode="decimal" value={form.interestRate} onChange={(event) => update({ interestRate: event.target.value })} />}
@@ -184,10 +194,14 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
                 )}
               </Field>
             </div>
-            <label className="check">
-              <input type="checkbox" checked={form.capitalizes} onChange={(event) => update({ capitalizes: event.target.checked })} />
-              <span>El interés se suma a esta misma cuenta</span>
-            </label>
+            {isCardAccount ? (
+              <p className="form-hint">La tasa anual que cobra la tarjeta (está en tu estado de cuenta). Se usa en los diferidos con intereses y para estimar cuánto cuesta no pagar el total.</p>
+            ) : (
+              <label className="check">
+                <input type="checkbox" checked={form.capitalizes} onChange={(event) => update({ capitalizes: event.target.checked })} />
+                <span>El interés se suma a esta misma cuenta</span>
+              </label>
+            )}
           </fieldset>
         ) : (
           <button type="button" className="link" onClick={() => setShowInterest(true)}>+ Agregar tasa de interés</button>

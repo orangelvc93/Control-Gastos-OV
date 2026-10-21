@@ -31,8 +31,12 @@ App nueva, primero para celular y como **web app instalable (PWA)**:
 - Campo de fecha escribible en el celular (dd/mm/aaaa + Hoy/Ayer + calendario).
 - Regla: un movimiento con fecha anterior al saldo inicial de su cuenta no cambia el saldo (app y vista `account_balances`).
 
+## Fase 3 · Tarjetas (2026-10-20)
+- Ver [[Tarjetas de crédito#Implementado (fase 3, 2026-10-20)]]: diferidos con y sin intereses, estado de cuenta por corte, pago guiado, mínimo anotado o estimado, avisos de corte / pago / atraso.
+- Detalle de la tarjeta con pestañas: Resumen, Estado de cuenta, Diferidos y Movimientos. La cuenta tarjeta tiene tasa anual y % de mínimo estimado.
+
 ## Pendiente según la [[Hoja de ruta]]
-- Fase 3: [[Créditos y préstamos]], diferidos y estado de cuenta de [[Tarjetas de crédito]], [[Plan para salir de deudas]].
+- Fase 3: [[Créditos y préstamos]] y [[Plan para salir de deudas]].
 - Fase 4: [[Intereses]] calculados, [[Plan de ahorro]] 50/30/20, [[Metas de ahorro]].
 - Fase 5: [[Facturas y gastos deducibles]], [[Reportes y exportación]], [[Exportación para el SRI]].
 - Fase 6: [[Lista de compras]].

@@ -25,7 +25,7 @@ Orden pensado para que cada fase se apoye en la anterior. Pendiente de validar c
 
 ## Fase 3 · Deudas
 - [[Créditos y préstamos]] con tabla de amortización y simulador de abonos.
-- [[Tarjetas de crédito]] con consumos, diferidos y estado de cuenta.
+- [[Tarjetas de crédito]] con consumos, diferidos y estado de cuenta. ✅ (2026-10-20)
 - [[Plan para salir de deudas]] (avalancha vs. bola de nieve).
 
 ## Fase 4 · Ahorro e intereses

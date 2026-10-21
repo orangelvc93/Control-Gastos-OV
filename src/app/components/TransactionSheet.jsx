@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { centsToInput, parseAmountInput } from '../../shared/lib/cents';
+import { cardReady, cutOnOrAfter, installmentSchedule, monthlyRate } from '../../shared/lib/cards';
+import { centsToInput, formatCents, parseAmountInput, sumCents } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
 import { isCard } from '../../shared/lib/ledger';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
@@ -8,6 +9,7 @@ import { Field } from '../ui/Field';
 import { Sheet } from '../ui/Sheet';
 
 const LAST_ACCOUNT_KEY = 'cg:last-account';
+const MONTH_OPTIONS = [3, 6, 9, 12, 18, 24, 36, 48];
 
 const kinds = [
   ['gasto', 'Gasto'],
@@ -65,14 +67,75 @@ function initialValues(existing, accounts, defaults) {
   };
 }
 
+const shortDate = (date) => date.split('-').reverse().join('/');
+
+// Compra con tarjeta: corriente (se cobra completa en el próximo corte) o diferida a meses.
+function DeferredFields({ form, account, error, update }) {
+  const rate = monthlyRate(account);
+  const cents = parseAmountInput(form.amount);
+  const months = Number(form.months);
+  const valid = Number.isFinite(cents) && cents > 0 && months >= 2 && months <= 60 && form.date;
+  const rows = valid && form.payMode === 'diferido'
+    ? installmentSchedule({ principalCents: cents, months, withInterest: form.withInterest && Boolean(rate), firstCut: cutOnOrAfter(form.date, account.statementDay) }, account)
+    : [];
+  const interest = sumCents(rows, (row) => row.interest);
+
+  return (
+    <fieldset className="fieldset">
+      <legend>Forma de pago</legend>
+      <div className="segmented segmented-2" role="radiogroup" aria-label="Forma de pago">
+        {[['corriente', 'Corriente'], ['diferido', 'Diferido a meses']].map(([value, label]) => (
+          <button key={value} type="button" role="radio" aria-checked={form.payMode === value} className={`segment ${form.payMode === value ? 'is-active' : ''}`} onClick={() => update({ payMode: value })}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {form.payMode === 'corriente' ? (
+        <p className="form-hint">Se cobra completo en el estado de cuenta del {shortDate(cutOnOrAfter(form.date || today(), account.statementDay))}.</p>
+      ) : (
+        <>
+          <div className="chips" role="radiogroup" aria-label="Meses">
+            {MONTH_OPTIONS.map((value) => (
+              <button key={value} type="button" role="radio" aria-checked={months === value} className={`chip ${months === value ? 'is-active' : ''}`} onClick={() => update({ months: value })}>
+                {value} meses
+              </button>
+            ))}
+          </div>
+          {error && <p className="field-error" role="alert">{error}</p>}
+          <label className="check">
+            <input type="checkbox" checked={form.withInterest} onChange={(event) => update({ withInterest: event.target.checked })} disabled={!rate} />
+            <span>
+              Con intereses
+              {rate ? ` (tasa de la tarjeta: ${account.interestRate.toLocaleString('es-EC')} % anual)` : ' (agrega la tasa de la tarjeta en Editar para usarlo)'}
+            </span>
+          </label>
+          {rows.length > 0 && (
+            <p className="alert alert-info">
+              {months} cuotas de <strong>{formatCents(rows[0].payment)}</strong>: la primera en el corte del {shortDate(rows[0].cut)} y la última el {shortDate(rows.at(-1).cut)}.
+              {interest > 0 ? ` En total pagarás ${formatCents(cents + interest)} (${formatCents(interest)} de intereses).` : ' Sin intereses.'}
+              {' '}El cupo baja hoy por el total; en cada estado de cuenta solo se cobra la cuota.
+            </p>
+          )}
+        </>
+      )}
+    </fieldset>
+  );
+}
+
 // existing: movimiento a editar (en transferencias, la fila de salida con toAccountId).
 // recurringItem: el frecuente del que viene el registro; permite aplicar el cambio "a este y los siguientes".
 export function TransactionSheet({
-  existing, confirm = false, recurringItem, accounts, categories, defaults = {},
+  existing, confirm = false, recurringItem, accounts, categories, installments = [], defaults = {},
   onSave, onSaveFollowing, onReplace, onTrash, onTrashFollowing, onClose,
 }) {
+  const existingPlan = existing ? installments.find((plan) => plan.transactionId === existing.id && !plan.archivedAt) : null;
   const [form, setForm] = useState(() => {
-    const values = initialValues(existing, accounts, defaults);
+    const values = {
+      ...initialValues(existing, accounts, defaults),
+      payMode: existingPlan ? 'diferido' : 'corriente',
+      months: existingPlan?.months ?? 12,
+      withInterest: existingPlan?.withInterest ?? false,
+    };
     return confirm ? { ...values, status: 'confirmado' } : values;
   });
   const [errors, setErrors] = useState({});
@@ -90,6 +153,9 @@ export function TransactionSheet({
     [categories, form.kind, form.categoryId],
   );
   const update = (patch) => setForm((current) => ({ ...current, ...patch }));
+  const selectedAccount = accounts.find((account) => account.id === form.accountId);
+  const cardPurchase = form.kind === 'gasto' && !isAdjustment && selectedAccount && isCard(selectedAccount);
+  const deferred = cardPurchase && cardReady(selectedAccount) && form.payMode === 'diferido';
 
   function validate() {
     const next = {};
@@ -97,6 +163,7 @@ export function TransactionSheet({
     if (!Number.isFinite(cents) || cents <= 0) next.amount = 'Escribe un monto mayor que cero, por ejemplo 12,50.';
     if (!form.accountId) next.accountId = 'Elige una cuenta.';
     if (!form.date) next.date = 'Escribe una fecha válida, por ejemplo 20/10/2026.';
+    if (deferred && !(Number(form.months) >= 2 && Number(form.months) <= 60)) next.months = 'Entre 2 y 60 meses.';
     if (form.kind === 'transferencia') {
       if (!form.toAccountId) next.toAccountId = 'Elige la cuenta de destino.';
       else if (form.toAccountId === form.accountId) next.toAccountId = 'El destino debe ser otra cuenta.';
@@ -128,6 +195,10 @@ export function TransactionSheet({
       status: form.status,
       recurringId: existing ? undefined : defaults.recurringId,
       occurrenceDate: existing ? undefined : defaults.occurrenceDate,
+      // undefined: no aplica (no es compra con tarjeta y no tenía diferido); null: corriente.
+      installment: deferred
+        ? { months: Number(form.months), withInterest: form.withInterest && Boolean(monthlyRate(selectedAccount)) }
+        : (cardPurchase || existingPlan ? null : undefined),
     };
 
     setBusy(true);
@@ -238,6 +309,12 @@ export function TransactionSheet({
               )}
             </div>
           )}
+
+          {cardPurchase && (cardReady(selectedAccount) ? (
+            <DeferredFields form={form} account={selectedAccount} error={errors.months} update={update} />
+          ) : (
+            <p className="form-hint">Para comprar a meses (diferido), agrega el día de corte y el de pago de la tarjeta en Cuentas → {selectedAccount.name} → Editar.</p>
+          ))}
 
           {form.kind === 'transferencia' && (
             <p className="form-hint">Una transferencia mueve dinero entre tus cuentas: no cuenta como gasto ni como ingreso. Para pagar la tarjeta, transfiere desde tu banco hacia la tarjeta.</p>
