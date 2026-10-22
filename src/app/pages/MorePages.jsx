@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { formatCents } from '../../shared/lib/cents';
-import { kindLabels, sriCategoryLabels } from '../../shared/lib/ledger';
+import { kindLabels, sriCategoryLabels, taxIncomeLabels } from '../../shared/lib/ledger';
 import { readThemePref, saveThemePref } from '../../shared/lib/theme';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Field } from '../ui/Field';
@@ -47,6 +47,7 @@ export function MorePage({ ledger, navigate, onLogout, userEmail }) {
     ['/presupuesto', 'chart', 'Presupuesto', 'Plan 50/30/20, presupuesto por categoría y fondo de emergencia'],
     ['/metas', 'wallet', 'Metas de ahorro', 'Cuánto ahorrar al mes para llegar a cada meta'],
     ['/rendimientos', 'chart', 'Rendimientos', 'Intereses ganados por tus cuentas y estimado del mes'],
+    ['/impuestos', 'tag', 'Impuestos (SRI)', 'Gastos deducibles, facturas, ingresos por tipo y Excel para la declaración'],
     ['/deudas', 'card', 'Plan para salir de deudas', 'Avalancha vs. bola de nieve y % de tus ingresos en deudas'],
     ['/avisos', 'bell', 'Avisos', 'Pagos próximos, frecuentes registrados y alertas'],
     ['/ajustes', 'bell', 'Avisos y Telegram', 'Cuándo avisarte y conectar tu Telegram'],
@@ -76,7 +77,7 @@ export function MorePage({ ledger, navigate, onLogout, userEmail }) {
           </button>
         </li>
       </ul>
-      <p className="form-hint">Próximamente aquí: facturas, reportes, exportación al SRI y lista de compras.</p>
+      <p className="form-hint">Próximamente aquí: lista de compras.</p>
     </div>
   );
 }
@@ -85,6 +86,7 @@ function CategorySheet({ kind, existing, onSave, onClose }) {
   const [name, setName] = useState(existing?.name ?? '');
   const [sriCategory, setSriCategory] = useState(existing?.sriCategory ?? '');
   const [countsAsIncome, setCountsAsIncome] = useState(existing?.countsAsIncome ?? true);
+  const [taxIncomeType, setTaxIncomeType] = useState(existing?.taxIncomeType ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const categoryKind = existing?.kind ?? kind;
@@ -96,7 +98,7 @@ function CategorySheet({ kind, existing, onSave, onClose }) {
       return;
     }
     setBusy(true);
-    const saved = await onSave({ name, kind: categoryKind, sriCategory, countsAsIncome }, existing);
+    const saved = await onSave({ name, kind: categoryKind, sriCategory, countsAsIncome, taxIncomeType }, existing);
     setBusy(false);
     if (saved) onClose();
   }
@@ -124,6 +126,16 @@ function CategorySheet({ kind, existing, onSave, onClose }) {
               <select {...props} className="input" value={sriCategory} onChange={(event) => setSriCategory(event.target.value)}>
                 <option value="">No deducible</option>
                 {Object.entries(sriCategoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            )}
+          </Field>
+        )}
+        {categoryKind === 'ingreso' && (
+          <Field label="Tipo de ingreso para el SRI" hint="Opcional. Agrupa tus ingresos en el resumen anual de impuestos.">
+            {(props) => (
+              <select {...props} className="input" value={taxIncomeType} onChange={(event) => setTaxIncomeType(event.target.value)} disabled={existing?.isSystem}>
+                <option value="">Sin tipo</option>
+                {Object.entries(taxIncomeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             )}
           </Field>
@@ -168,6 +180,7 @@ export function CategoriesPage({ ledger, navigate }) {
                   <small>
                     {[
                       category.sriCategory && `SRI: ${sriCategoryLabels[category.sriCategory]}`,
+                      category.kind === 'ingreso' && category.taxIncomeType && `SRI: ${taxIncomeLabels[category.taxIncomeType]}`,
                       category.kind === 'ingreso' && !category.countsAsIncome && 'No es ingreso disponible',
                       category.isSystem && 'Del sistema',
                       category.archivedAt && 'Archivada',

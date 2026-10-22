@@ -20,6 +20,7 @@ const savingsPage = (name) => lazy(() => import('./pages/SavingsPages').then((mo
 const BudgetPage = savingsPage('BudgetPage');
 const GoalsPage = savingsPage('GoalsPage');
 const YieldsPage = savingsPage('YieldsPage');
+const TaxesPage = lazy(() => import('./pages/TaxesPage').then((module) => ({ default: module.TaxesPage })));
 const LegacyBook = lazy(() => import('../features/legacy/LegacyBook').then((module) => ({ default: module.LegacyBook })));
 
 // Modo privado: se guarda en este dispositivo y no se borra al cerrar sesión.
@@ -160,6 +161,12 @@ export function AppShell({ user, onLogout }) {
     page = (
       <Suspense fallback={<p className="page-loading" role="status">Cargando…</p>}>
         <SavingsPage {...pageProps} />
+      </Suspense>
+    );
+  } else if (path === '/impuestos') {
+    page = (
+      <Suspense fallback={<p className="page-loading" role="status">Cargando…</p>}>
+        <TaxesPage {...pageProps} />
       </Suspense>
     );
   } else if (path === '/mas') {

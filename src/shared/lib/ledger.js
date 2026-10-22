@@ -21,6 +21,14 @@ export const sriCategoryLabels = {
   turismo: 'Turismo',
 };
 
+// Tipos de ingreso para la declaración (categorías de ingreso → resumen anual del SRI).
+export const taxIncomeLabels = {
+  relacion_dependencia: 'Relación de dependencia (sueldo)',
+  honorarios: 'Honorarios profesionales',
+  rendimientos_financieros: 'Rendimientos financieros',
+  otros: 'Otros ingresos',
+};
+
 export const kindLabels = {
   gasto: 'Gasto',
   ingreso: 'Ingreso',

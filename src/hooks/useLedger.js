@@ -30,7 +30,7 @@ function friendlyError(error) {
 // Las acciones devuelven true/false para que los formularios no se cierren si falla el guardado.
 export function useLedger(userId, notify) {
   const [ledger, setLedger] = useState({
-    accounts: [], categories: [], transactions: [], recurring: [], notifications: [], settings: null, installments: [], statements: [], loans: [], goals: [],
+    accounts: [], categories: [], transactions: [], recurring: [], notifications: [], settings: null, installments: [], statements: [], loans: [], goals: [], taxYears: [],
   });
   const [status, setStatus] = useState('loading');
   const [loadError, setLoadError] = useState('');
@@ -245,6 +245,7 @@ export function useLedger(userId, notify) {
         () => (existing ? api.updateGoal(supabase, existing.id, values) : api.createGoal(supabase, values)),
         existing ? 'Meta actualizada' : 'Meta creada',
       ),
+      saveTaxYear: (values) => run(() => api.saveTaxYear(supabase, userId, values), 'Valores del SRI guardados'),
       archiveGoal: (goal) => run(() => api.setGoalArchived(supabase, goal.id, true), 'Meta archivada'),
       // Abono extra a capital; "reducir cuota" además guarda la cuota nueva.
       payLoanExtra: ({ loan, account, fromAccountId, cents, date, newPaymentCents }) => run(async () => {

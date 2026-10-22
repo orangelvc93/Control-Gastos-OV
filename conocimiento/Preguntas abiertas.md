@@ -41,9 +41,10 @@ Dudas a resolver antes de implementar. Al responder una, anotar la decisión aqu
 
 ## Archivos y exportación
 13. Las facturas adjuntas irían a Supabase Storage (plan gratuito: 1 GB). ¿Es suficiente o se comprime / limita el tamaño?
+   - ✅ **Decisión: sin adjuntos.** No se guardan fotos, PDF ni XML; solo los datos de la factura.
    - ✅ **Decisión: comprimir.** Fotos reducidas a ~200–300 KB en el navegador antes de subir; PDF con límite de 2 MB. Bucket privado con RLS por usuario.
 14. Para el SRI, ¿necesitas ingresar también facturas electrónicas por clave de acceso, o solo los datos manuales?
-   - ✅ **Decisión: manual + lectura del XML** de la factura electrónica. Al subir el XML se rellenan RUC, número, fecha, base imponible e IVA; el XML se guarda como adjunto.
+   - ✅ **Decisión: manual + lectura del XML** de la factura electrónica. Al elegir el XML se rellenan RUC, número, fecha, base imponible e IVA; el XML no se guarda (ver pregunta 13).
 
 ## Registro de usuarios
 15. Con el registro público (tarjeta G36), ¿la app será solo para ti y tu familia o abierta a cualquiera? Afecta seguridad, límites y la tarjeta C18.

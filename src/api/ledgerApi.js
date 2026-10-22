@@ -93,6 +93,13 @@ function fromTransaction(row) {
     loanNo: row.loan_no,
     interestMonth: row.interest_month,
     interestAccount: row.interest_account,
+    deductible: Boolean(row.deductible),
+    invoice: {
+      ruc: row.invoice_ruc ?? '',
+      number: row.invoice_number ?? '',
+      baseCents: row.invoice_base === null || row.invoice_base === undefined ? null : toCents(row.invoice_base),
+      ivaCents: row.invoice_iva === null || row.invoice_iva === undefined ? null : toCents(row.invoice_iva),
+    },
     createdAt: row.created_at,
     deletedAt: row.deleted_at,
   };
@@ -228,7 +235,7 @@ function fromSettings(row) {
 
 // Ver countsForBalance en shared/lib/ledger.js: los movimientos anteriores al saldo inicial no lo cambian.
 export async function fetchLedger(supabase) {
-  const [accounts, categories, transactions, recurring, notifications, settings, installments, statements, loans, goals] = await Promise.all([
+  const [accounts, categories, transactions, recurring, notifications, settings, installments, statements, loans, goals, taxYears] = await Promise.all([
     supabase.from('accounts').select('*').order('sort_order').order('created_at'),
     supabase.from('categories').select('*').order('name'),
     supabase.from('transactions').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
@@ -239,6 +246,7 @@ export async function fetchLedger(supabase) {
     supabase.from('card_statements').select('*'),
     supabase.from('loans').select('*').order('created_at'),
     supabase.from('goals').select('*').order('created_at'),
+    supabase.from('tax_years').select('*').order('year'),
   ]);
 
   const mappedCategories = check(categories).map(fromCategory);
@@ -257,7 +265,42 @@ export async function fetchLedger(supabase) {
     statements: check(statements).map(fromStatement),
     loans: check(loans).map(fromLoan),
     goals: check(goals).map(fromGoal),
+    taxYears: check(taxYears).map(fromTaxYear),
   };
+}
+
+// Impuestos: configuración del SRI por año --------------------------------------------
+
+const money = (value) => (value === null || value === undefined ? null : toCents(value));
+
+function fromTaxYear(row) {
+  return {
+    id: row.id,
+    year: row.year,
+    basicFractionCents: money(row.basic_fraction),
+    basketCents: money(row.basket_value),
+    rebatePct: Number(row.rebate_pct),
+    dependents: row.dependents,
+    catastrophic: row.catastrophic,
+    basketLimits: row.basket_limits ?? {},
+    catastrophicBaskets: row.catastrophic_baskets,
+    interestWithholdingPct: Number(row.interest_withholding_pct),
+  };
+}
+
+export async function saveTaxYear(supabase, userId, values) {
+  check(await supabase.from('tax_years').upsert({
+    user_id: userId,
+    year: values.year,
+    basic_fraction: values.basicFractionCents === null ? null : centsToDb(values.basicFractionCents),
+    basket_value: values.basketCents === null ? null : centsToDb(values.basketCents),
+    rebate_pct: values.rebatePct,
+    dependents: values.dependents,
+    catastrophic: values.catastrophic,
+    basket_limits: values.basketLimits,
+    catastrophic_baskets: values.catastrophicBaskets,
+    interest_withholding_pct: values.interestWithholdingPct,
+  }, { onConflict: 'user_id,year' }));
 }
 
 // Ahorro: presupuesto, intereses anotados y metas -----------------------------------
@@ -400,6 +443,19 @@ export async function saveMonthlyIncome(supabase, userId, cents) {
 // Movimientos ----------------------------------------------------------------
 
 // Devuelve el id (lo necesita el diferido de una compra con tarjeta).
+// Deducible y datos de la factura (sin adjuntos: solo los datos).
+function invoiceColumns(values) {
+  if (values.deductible === undefined) return {};
+  const invoice = values.deductible ? values.invoice ?? {} : {};
+  return {
+    deductible: Boolean(values.deductible),
+    invoice_ruc: invoice.ruc?.trim() || null,
+    invoice_number: invoice.number?.trim() || null,
+    invoice_base: invoice.baseCents === null || invoice.baseCents === undefined ? null : centsToDb(invoice.baseCents),
+    invoice_iva: invoice.ivaCents === null || invoice.ivaCents === undefined ? null : centsToDb(invoice.ivaCents),
+  };
+}
+
 export async function createTransaction(supabase, values) {
   return check(await supabase.from('transactions').insert({
     account_id: values.accountId,
@@ -414,6 +470,7 @@ export async function createTransaction(supabase, values) {
     occurrence_date: values.occurrenceDate ?? null,
     interest_month: values.interestMonth ?? null,
     interest_account: values.interestAccount ?? null,
+    ...invoiceColumns(values),
   }).select('id').single()).id;
 }
 
@@ -427,6 +484,7 @@ export async function updateTransaction(supabase, id, values) {
     status: values.status,
     description: values.description.trim(),
     note: values.note.trim(),
+    ...invoiceColumns(values),
   }).eq('id', id));
 }
 
@@ -527,6 +585,7 @@ export async function createCategory(supabase, values) {
     name: values.name.trim(),
     kind: values.kind,
     sri_category: values.sriCategory || null,
+    tax_income_type: values.kind === 'ingreso' ? values.taxIncomeType || null : null,
     counts_as_income: values.kind !== 'ingreso' || values.countsAsIncome !== false,
   }));
 }
@@ -535,6 +594,7 @@ export async function updateCategory(supabase, id, values) {
   check(await supabase.from('categories').update({
     name: values.name.trim(),
     sri_category: values.sriCategory || null,
+    tax_income_type: values.kind === 'ingreso' ? values.taxIncomeType || null : null,
     counts_as_income: values.kind !== 'ingreso' || values.countsAsIncome !== false,
   }).eq('id', id));
 }

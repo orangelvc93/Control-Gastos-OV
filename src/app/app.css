@@ -2382,3 +2382,17 @@
 .plan-list li .plan-row {
   background: transparent;
 }
+
+/* Botón que abre el selector de archivos (leer el XML de una factura) */
+.file-button {
+  cursor: pointer;
+  justify-self: start;
+  position: relative;
+}
+
+.file-button input {
+  cursor: pointer;
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+}

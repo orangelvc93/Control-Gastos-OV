@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { canChargeInterest, cardReady, cutOnOrAfter, deferralFactor, installmentSchedule, monthlyRate } from '../../shared/lib/cards';
 import { centsToInput, formatCents, parseAmountInput, sumCents } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
+import { parseInvoiceXml } from '../../shared/lib/invoiceXml';
 import { isCard, isDebt } from '../../shared/lib/ledger';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { DateField } from '../ui/DateField';
@@ -33,7 +34,7 @@ function rememberAccount(id) {
   }
 }
 
-function initialValues(existing, accounts, defaults) {
+function initialValues(existing, accounts, defaults, categories) {
   const open = accounts.filter((account) => !account.archivedAt);
   const fallbackAccount = open.find((account) => account.id === (defaults.accountId ?? readLastAccount()))
     ?? open.find((account) => !account.isSavings && !isDebt(account))
@@ -51,6 +52,9 @@ function initialValues(existing, accounts, defaults) {
       description: defaults.description ?? '',
       note: defaults.note ?? '',
       status: 'confirmado',
+      // Un gasto es deducible por defecto si su categoría tiene categoría del SRI.
+      deductible: Boolean(categories.find((category) => category.id === defaults.categoryId)?.sriCategory),
+      invoiceRuc: '', invoiceNumber: '', invoiceBase: '', invoiceIva: '',
     };
   }
 
@@ -64,7 +68,67 @@ function initialValues(existing, accounts, defaults) {
     description: existing.description,
     note: existing.note,
     status: existing.status,
+    deductible: Boolean(existing.deductible),
+    invoiceRuc: existing.invoice?.ruc ?? '',
+    invoiceNumber: existing.invoice?.number ?? '',
+    invoiceBase: existing.invoice?.baseCents === null || existing.invoice?.baseCents === undefined ? '' : centsToInput(existing.invoice.baseCents),
+    invoiceIva: existing.invoice?.ivaCents === null || existing.invoice?.ivaCents === undefined ? '' : centsToInput(existing.invoice.ivaCents),
   };
+}
+
+const optionalCents = (text) => (String(text).trim() === '' ? null : parseAmountInput(text));
+
+// Factura de un gasto deducible (para el SRI). Sin adjuntos: el XML se lee aquí y no se guarda.
+function InvoiceFields({ form, errors, update }) {
+  const [xmlMessage, setXmlMessage] = useState('');
+
+  async function readXml(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const data = parseInvoiceXml(await file.text());
+      update({
+        invoiceRuc: data.ruc,
+        invoiceNumber: data.number,
+        invoiceBase: data.baseCents === null ? '' : centsToInput(data.baseCents),
+        invoiceIva: centsToInput(data.ivaCents ?? 0),
+        ...(form.amount === '' && data.totalCents ? { amount: centsToInput(data.totalCents) } : {}),
+        ...(data.date ? { date: data.date } : {}),
+        ...(form.description.trim() === '' && data.supplier ? { description: data.supplier } : {}),
+      });
+      setXmlMessage(`Leída la factura ${data.number} de ${data.supplier || data.ruc}. El archivo no se guarda.`);
+    } catch (error) {
+      setXmlMessage(error.message || 'No se pudo leer el XML.');
+    }
+  }
+
+  return (
+    <fieldset className="fieldset">
+      <legend>Factura (para el SRI)</legend>
+      <div className="field-row">
+        <Field label="RUC del proveedor" error={errors.invoiceRuc}>
+          {(props) => <input {...props} className="input" inputMode="numeric" placeholder="1790000000001" value={form.invoiceRuc} onChange={(event) => update({ invoiceRuc: event.target.value.replace(/\D/g, '') })} />}
+        </Field>
+        <Field label="N.º de factura">
+          {(props) => <input {...props} className="input" placeholder="001-001-000012345" value={form.invoiceNumber} onChange={(event) => update({ invoiceNumber: event.target.value })} />}
+        </Field>
+      </div>
+      <div className="field-row">
+        <Field label="Base imponible" error={errors.invoiceBase}>
+          {(props) => <input {...props} className="input" inputMode="decimal" placeholder="0,00" value={form.invoiceBase} onChange={(event) => update({ invoiceBase: event.target.value })} />}
+        </Field>
+        <Field label="IVA" error={errors.invoiceIva}>
+          {(props) => <input {...props} className="input" inputMode="decimal" placeholder="0,00" value={form.invoiceIva} onChange={(event) => update({ invoiceIva: event.target.value })} />}
+        </Field>
+      </div>
+      <label className="btn btn-secondary btn-small file-button">
+        Leer XML de la factura electrónica
+        <input type="file" accept=".xml,text/xml,application/xml" onChange={readXml} />
+      </label>
+      {xmlMessage && <p className="form-hint" role="status">{xmlMessage}</p>}
+    </fieldset>
+  );
 }
 
 const shortDate = (date) => date.split('-').reverse().join('/');
@@ -137,7 +201,7 @@ export function TransactionSheet({
   const existingPlan = existing ? installments.find((plan) => plan.transactionId === existing.id && !plan.archivedAt) : null;
   const [form, setForm] = useState(() => {
     const values = {
-      ...initialValues(existing, accounts, defaults),
+      ...initialValues(existing, accounts, defaults, categories),
       payMode: existingPlan ? 'diferido' : 'corriente',
       months: existingPlan?.months ?? 12,
       withInterest: existingPlan?.withInterest ?? false,
@@ -175,6 +239,11 @@ export function TransactionSheet({
     }
     if (!form.date) next.date = 'Escribe una fecha válida, por ejemplo 20/10/2026.';
     if (deferred && !(Number(form.months) >= 2 && Number(form.months) <= 60)) next.months = 'Entre 2 y 60 meses.';
+    if (form.kind === 'gasto' && form.deductible) {
+      if (form.invoiceRuc && !/^\d{10,13}$/.test(form.invoiceRuc)) next.invoiceRuc = 'El RUC o cédula tiene de 10 a 13 dígitos.';
+      if (!Number.isFinite(optionalCents(form.invoiceBase) ?? 0)) next.invoiceBase = 'Escribe un monto válido.';
+      if (!Number.isFinite(optionalCents(form.invoiceIva) ?? 0)) next.invoiceIva = 'Escribe un monto válido.';
+    }
     if (form.kind === 'transferencia') {
       if (!form.toAccountId) next.toAccountId = 'Elige la cuenta de destino.';
       else if (form.toAccountId === form.accountId) next.toAccountId = 'El destino debe ser otra cuenta.';
@@ -204,6 +273,13 @@ export function TransactionSheet({
       description: form.description,
       note: form.note,
       status: form.status,
+      deductible: isAdjustment ? undefined : form.kind === 'gasto' && form.deductible,
+      invoice: {
+        ruc: form.invoiceRuc,
+        number: form.invoiceNumber,
+        baseCents: optionalCents(form.invoiceBase),
+        ivaCents: optionalCents(form.invoiceIva),
+      },
       recurringId: existing ? undefined : defaults.recurringId,
       occurrenceDate: existing ? undefined : defaults.occurrenceDate,
       // undefined: no aplica (no es compra con tarjeta y no tenía diferido); null: corriente.
@@ -311,7 +387,16 @@ export function TransactionSheet({
               {!isAdjustment && (
                 <Field label="Categoría" error={errors.categoryId}>
                   {(props) => (
-                    <select {...props} className="input" value={form.categoryId} onChange={(event) => update({ categoryId: event.target.value })}>
+                    <select
+                      {...props}
+                      className="input"
+                      value={form.categoryId}
+                      onChange={(event) => update({
+                        categoryId: event.target.value,
+                        // Al elegir categoría se propone deducible si es del SRI (se puede cambiar abajo).
+                        ...(form.kind === 'gasto' ? { deductible: Boolean(categories.find((category) => category.id === event.target.value)?.sriCategory) } : {}),
+                      })}
+                    >
                       <option value="">Elige…</option>
                       {kindCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                     </select>
@@ -326,6 +411,14 @@ export function TransactionSheet({
           ) : (
             <p className="form-hint">Para comprar a meses (diferido), agrega el día de corte y el de pago de la tarjeta en Cuentas → {selectedAccount.name} → Editar.</p>
           ))}
+
+          {form.kind === 'gasto' && !isAdjustment && (
+            <label className="check">
+              <input type="checkbox" checked={form.deductible} onChange={(event) => update({ deductible: event.target.checked })} />
+              <span>Gasto deducible (gastos personales del SRI)</span>
+            </label>
+          )}
+          {form.kind === 'gasto' && !isAdjustment && form.deductible && <InvoiceFields form={form} errors={errors} update={update} />}
 
           {form.kind === 'transferencia' && (
             <p className="form-hint">Una transferencia mueve dinero entre tus cuentas: no cuenta como gasto ni como ingreso. Para pagar la tarjeta, transfiere desde tu banco hacia la tarjeta.</p>

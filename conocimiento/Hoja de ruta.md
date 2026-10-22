@@ -33,7 +33,7 @@ Orden pensado para que cada fase se apoye en la anterior. Pendiente de validar c
 - [[Plan de ahorro]] 50/30/20 editable, presupuestos por categoría.
 - [[Metas de ahorro]] y fondo de emergencia.
 
-## Fase 5 · Impuestos y reportes
+## Fase 5 · Impuestos y reportes ✅ (2026-10-22, PDF pendiente)
 - [[Facturas y gastos deducibles]] con adjuntos.
 - [[Configuración por año (SRI)]].
 - [[Reportes y exportación]] (Excel/CSV/PDF) y [[Exportación para el SRI]].
