@@ -1904,3 +1904,124 @@
   letter-spacing: 0;
   text-transform: none;
 }
+
+/* Ahorro: presupuesto, fondo de emergencia, metas ------------------------ */
+
+.progress {
+  background: var(--c-surface-2);
+  border-radius: 99px;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.progress span {
+  background: var(--c-primary);
+  border-radius: 99px;
+  display: block;
+  height: 100%;
+}
+
+.progress-good span { background: var(--c-positive); }
+.progress-warn span { background: var(--c-warning); }
+.progress-over span { background: #fb7185; }
+
+.plan-groups,
+.budget-list,
+.goal-list {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plan-groups li {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.plan-group-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.plan-group-head small {
+  color: var(--c-muted);
+  font-weight: 500;
+}
+
+.plan-group-head span {
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-row {
+  align-items: center;
+  border-bottom: 1px solid var(--c-border);
+  display: grid;
+  gap: var(--space-2) var(--space-3);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 120px;
+  padding-bottom: var(--space-3);
+}
+
+.budget-row:last-child {
+  border-bottom: 0;
+}
+
+.budget-name {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.budget-figures {
+  display: grid;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  gap: var(--space-1);
+}
+
+.input-compact {
+  font-size: var(--fs-sm);
+  min-height: 36px;
+  padding: 0 var(--space-2);
+}
+
+.goal-card {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.goal-card h2,
+.goal-card p {
+  margin: 0;
+}
+
+.goal-amounts {
+  font-variant-numeric: tabular-nums;
+}
+
+.status-pill {
+  border-radius: 99px;
+  font-weight: 700;
+  padding: 1px var(--space-2);
+}
+
+.status-good { background: rgba(74, 222, 128, 0.14); color: var(--c-positive); }
+.status-warn { background: rgba(251, 191, 36, 0.14); color: var(--c-warning); }
+.status-over { background: rgba(251, 113, 133, 0.14); color: #fb7185; }
+
+@media (max-width: 560px) {
+  .budget-row {
+    grid-template-columns: minmax(0, 1fr) 110px;
+  }
+
+  .budget-figures {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

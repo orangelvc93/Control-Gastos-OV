@@ -6,6 +6,13 @@ modulo: 3
 
 Ejemplos: fondo de emergencia, viaje, auto.
 
+## Implementado (fase 4, 2026-10-22)
+- Pantalla **Más → Metas de ahorro** (`/metas`), tabla `goals`.
+- Lo ahorrado = saldo de la cuenta asociada; sin cuenta, lo anota el usuario.
+- Avance %, aporte mensual necesario (con interés compuesto si la cuenta tiene tasa), estado: a tiempo / un poco atrás / atrasada (más de 10 % del objetivo por debajo de lo esperado en línea recta desde que se creó) / pasó la fecha.
+- **"Ahorrar esto cada mes"**: abre un frecuente de transferencia hacia la cuenta de la meta, prellenado.
+- Aviso `meta-atrasada` una vez por mes.
+
 ## Datos
 | Campo | Notas |
 |---|---|

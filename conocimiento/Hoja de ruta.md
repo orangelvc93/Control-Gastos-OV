@@ -28,8 +28,8 @@ Orden pensado para que cada fase se apoye en la anterior. Pendiente de validar c
 - [[Tarjetas de crédito]] con consumos, diferidos y estado de cuenta. ✅ (2026-10-20)
 - [[Plan para salir de deudas]] (avalancha vs. bola de nieve). ✅ (2026-10-20)
 
-## Fase 4 · Ahorro e intereses
-- [[Intereses]] con tipo de tasa, capitalización, retención y proyección.
+## Fase 4 · Ahorro e intereses ✅ (2026-10-22)
+- [[Intereses]]: se anotan cada mes; historial, rendimiento aproximado y estimado del mes.
 - [[Plan de ahorro]] 50/30/20 editable, presupuestos por categoría.
 - [[Metas de ahorro]] y fondo de emergencia.
 

@@ -13,7 +13,8 @@ const kinds = [
   ['transferencia', 'Ahorro / pago'],
 ];
 
-function initialValues(existing, accounts) {
+// defaults: valores iniciales de uno nuevo (p. ej. el ahorro mensual de una meta).
+function initialValues(existing, accounts, defaults = {}) {
   if (existing) {
     return {
       name: existing.name,
@@ -33,11 +34,12 @@ function initialValues(existing, accounts) {
   return {
     name: '', kind: 'gasto', amount: '', accountId: main?.id ?? '', toAccountId: '', categoryId: '',
     frequency: 'mensual', startDate: today(), endDate: '', note: '', fixedAmount: true,
+    ...defaults,
   };
 }
 
-export function RecurringSheet({ existing, accounts, categories, onSave, onClose }) {
-  const [form, setForm] = useState(() => initialValues(existing, accounts));
+export function RecurringSheet({ existing, defaults, accounts, categories, onSave, onClose }) {
+  const [form, setForm] = useState(() => initialValues(existing, accounts, defaults));
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
   const update = (patch) => setForm((current) => ({ ...current, ...patch }));
@@ -95,7 +97,7 @@ export function RecurringSheet({ existing, accounts, categories, onSave, onClose
 
         <div className="field-row">
           <Field label="Nombre" error={errors.name}>
-            {(props) => <input {...props} className="input" placeholder={transfer ? 'Ej. Ahorro mensual a Metas' : 'Ej. Arriendo, Internet, Sueldo'} value={form.name} onChange={(event) => update({ name: event.target.value })} autoFocus={!existing} />}
+            {(props) => <input {...props} className="input" placeholder={transfer ? 'Ej. Ahorro mensual a Metas' : 'Ej. Arriendo, Internet, Sueldo'} value={form.name} onChange={(event) => update({ name: event.target.value })} data-autofocus={!existing || undefined} />}
           </Field>
           <Field label="Monto (USD)" error={errors.amount} hint="Si varía cada mes, pon el valor habitual.">
             {(props) => <input {...props} className="input" inputMode="decimal" placeholder="0,00" value={form.amount} onChange={(event) => update({ amount: event.target.value })} />}

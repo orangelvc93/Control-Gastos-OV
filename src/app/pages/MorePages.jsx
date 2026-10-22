@@ -11,6 +11,9 @@ export function MorePage({ ledger, navigate, onLogout, userEmail }) {
   const links = [
     ['/dashboard', 'chart', 'Dashboard', 'Gráficas de ingresos, gastos, categorías, patrimonio y cuentas'],
     ['/gestion', 'wallet', 'Gestión', 'Crear cuentas, tarjetas, créditos y gastos o ingresos frecuentes'],
+    ['/presupuesto', 'chart', 'Presupuesto', 'Plan 50/30/20, presupuesto por categoría y fondo de emergencia'],
+    ['/metas', 'wallet', 'Metas de ahorro', 'Cuánto ahorrar al mes para llegar a cada meta'],
+    ['/rendimientos', 'chart', 'Rendimientos', 'Intereses ganados por tus cuentas y estimado del mes'],
     ['/deudas', 'card', 'Plan para salir de deudas', 'Avalancha vs. bola de nieve y % de tus ingresos en deudas'],
     ['/avisos', 'bell', 'Avisos', 'Pagos próximos, frecuentes registrados y alertas'],
     ['/ajustes', 'bell', 'Avisos y Telegram', 'Cuándo avisarte y conectar tu Telegram'],
@@ -39,7 +42,7 @@ export function MorePage({ ledger, navigate, onLogout, userEmail }) {
           </button>
         </li>
       </ul>
-      <p className="form-hint">Próximamente aquí: presupuesto, metas, lista de compras, reportes y exportación al SRI.</p>
+      <p className="form-hint">Próximamente aquí: facturas, reportes, exportación al SRI y lista de compras.</p>
     </div>
   );
 }
@@ -78,7 +81,7 @@ function CategorySheet({ kind, existing, onSave, onClose }) {
     >
       <form id="category-form" className="form-stack" onSubmit={submit} noValidate>
         <Field label="Nombre" error={error}>
-          {(props) => <input {...props} className="input" value={name} onChange={(event) => setName(event.target.value)} autoFocus disabled={existing?.isSystem} />}
+          {(props) => <input {...props} className="input" value={name} onChange={(event) => setName(event.target.value)} data-autofocus disabled={existing?.isSystem} />}
         </Field>
         {categoryKind === 'gasto' && (
           <Field label="Categoría del SRI (gastos personales deducibles)" hint="Opcional. Sirve para la declaración de impuestos.">

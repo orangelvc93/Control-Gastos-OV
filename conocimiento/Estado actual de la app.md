@@ -42,7 +42,9 @@ App nueva, primero para celular y como **web app instalable (PWA)**:
 ## Fase 3 · Plan de deudas (2026-10-20)
 - Ver [[Plan para salir de deudas#Implementado (fase 3, 2026-10-20)]]: % de ingresos en deudas, avalancha vs. bola de nieve, simulador antes de endeudarte y aviso de endeudamiento alto.
 
+## Fase 4 · Ahorro (2026-10-22)
+- [[Intereses]] anotados a mano con historial, rendimiento aproximado y estimado; [[Plan de ahorro]] 50/30/20 con presupuestos por categoría y fondo de emergencia; [[Metas de ahorro]].
+
 ## Pendiente según la [[Hoja de ruta]]
-- Fase 4: [[Intereses]] calculados, [[Plan de ahorro]] 50/30/20, [[Metas de ahorro]].
 - Fase 5: [[Facturas y gastos deducibles]], [[Reportes y exportación]], [[Exportación para el SRI]].
 - Fase 6: [[Lista de compras]].

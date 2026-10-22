@@ -14,6 +14,10 @@ import { useHashRoute } from './useHashRoute';
 // Las gráficas (recharts) pesan: se descargan solo al abrir el dashboard.
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const DebtPlanPage = lazy(() => import('./pages/DebtPlanPage').then((module) => ({ default: module.DebtPlanPage })));
+const savingsPage = (name) => lazy(() => import('./pages/SavingsPages').then((module) => ({ default: module[name] })));
+const BudgetPage = savingsPage('BudgetPage');
+const GoalsPage = savingsPage('GoalsPage');
+const YieldsPage = savingsPage('YieldsPage');
 const LegacyBook = lazy(() => import('../features/legacy/LegacyBook').then((module) => ({ default: module.LegacyBook })));
 
 const navItems = [
@@ -121,6 +125,13 @@ export function AppShell({ user, onLogout }) {
     page = (
       <Suspense fallback={<p className="page-loading" role="status">Cargando plan…</p>}>
         <DebtPlanPage {...pageProps} />
+      </Suspense>
+    );
+  } else if (path === '/presupuesto' || path === '/metas' || path === '/rendimientos') {
+    const SavingsPage = { '/presupuesto': BudgetPage, '/metas': GoalsPage, '/rendimientos': YieldsPage }[path];
+    page = (
+      <Suspense fallback={<p className="page-loading" role="status">Cargando…</p>}>
+        <SavingsPage {...pageProps} />
       </Suspense>
     );
   } else if (path === '/mas') {

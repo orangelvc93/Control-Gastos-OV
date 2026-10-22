@@ -20,7 +20,7 @@ function initialValues(existing, presetType = 'ahorro') {
       name: '', institution: '', type: presetType, opening: '', openingNegative: false, openingDate: today(),
       isSavings: presetType === 'inversion' || presetType === 'poliza',
       creditLimit: '', statementDay: '', dueDay: '', interestRate: '', rateType: 'nominal', dayBasis: '360', capitalizes: true, minPaymentPct: '10',
-      deferralFactors: factorsToForm(),
+      deferralFactors: factorsToForm(), earnsInterest: false, interestAccountId: '', withholdingPct: '',
     };
   }
   const isCardAccount = existing.type === 'tarjeta_credito';
@@ -42,10 +42,14 @@ function initialValues(existing, presetType = 'ahorro') {
     capitalizes: existing.capitalizes,
     minPaymentPct: String(existing.minPaymentPct ?? 10),
     deferralFactors: factorsToForm(existing.deferralFactors),
+    earnsInterest: existing.earnsInterest || (!isCardAccount && Boolean(existing.interestRate)),
+    interestAccountId: existing.interestAccountId ?? '',
+    withholdingPct: existing.withholdingPct === null || existing.withholdingPct === undefined ? '' : String(existing.withholdingPct).replace('.', ','),
   };
 }
 
-export function AccountSheet({ existing, presetType, onSave, onClose }) {
+// accounts: para elegir la cuenta destino del interés cuando no capitaliza.
+export function AccountSheet({ existing, presetType, accounts = [], onSave, onClose }) {
   const [form, setForm] = useState(() => initialValues(existing, presetType));
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
@@ -54,6 +58,8 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
   const isCardAccount = form.type === 'tarjeta_credito';
   // En tarjetas la tasa sirve para los diferidos con intereses y para estimar el interés si no pagas el total.
   const allowsInterest = interestTypes.includes(form.type) || isCardAccount;
+  const earnsInterest = allowsInterest && !isCardAccount && form.earnsInterest;
+  const destinations = accounts.filter((account) => !account.archivedAt && account.id !== existing?.id && account.type !== 'tarjeta_credito' && account.type !== 'prestamo');
 
   function changeType(type) {
     update({ type, isSavings: type === 'inversion' || type === 'poliza' ? true : form.isSavings });
@@ -76,6 +82,9 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
     if (form.interestRate !== '' && !(Number(String(form.interestRate).replace(',', '.')) >= 0)) next.interestRate = 'Tasa no válida.';
     const minPaymentPct = Number(String(form.minPaymentPct).replace(',', '.'));
     if (isCardAccount && !(minPaymentPct >= 0 && minPaymentPct <= 100)) next.minPaymentPct = 'Entre 0 y 100.';
+    const withholdingPct = form.withholdingPct === '' ? null : Number(String(form.withholdingPct).replace(',', '.'));
+    if (withholdingPct !== null && !(withholdingPct >= 0 && withholdingPct < 100)) next.withholdingPct = 'Entre 0 y 99.';
+    if (earnsInterest && !form.capitalizes && !form.interestAccountId) next.interestAccountId = 'Elige a qué cuenta llega el interés.';
     const deferralFactors = {};
     for (const months of FACTOR_MONTHS) {
       const text = String(form.deferralFactors[months] ?? '').trim();
@@ -99,10 +108,13 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
       creditLimitCents: isCardAccount ? creditLimit : null,
       statementDay: isCardAccount ? day(form.statementDay) : null,
       dueDay: isCardAccount ? day(form.dueDay) : null,
-      interestRate: allowsInterest && form.interestRate !== '' ? Number(String(form.interestRate).replace(',', '.')) : null,
-      rateType: allowsInterest && form.interestRate !== '' ? form.rateType : null,
-      dayBasis: allowsInterest && form.interestRate !== '' ? form.dayBasis : null,
+      interestRate: (isCardAccount || earnsInterest) && form.interestRate !== '' ? Number(String(form.interestRate).replace(',', '.')) : null,
+      rateType: (isCardAccount || earnsInterest) && form.interestRate !== '' ? form.rateType : null,
+      dayBasis: (isCardAccount || earnsInterest) && form.interestRate !== '' ? form.dayBasis : null,
       capitalizes: form.capitalizes,
+      earnsInterest,
+      interestAccountId: earnsInterest && !form.capitalizes ? form.interestAccountId : null,
+      withholdingPct: earnsInterest ? withholdingPct : null,
       minPaymentPct: isCardAccount ? minPaymentPct : 10,
       deferralFactors: isCardAccount ? deferralFactors : {},
       color: existing?.color,
@@ -127,7 +139,7 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
     >
       <form id="account-form" className="form-stack" onSubmit={submit} noValidate>
         <Field label="Nombre" error={errors.name}>
-          {(props) => <input {...props} className="input" placeholder="Ej. Pichincha Ahorros" value={form.name} onChange={(event) => update({ name: event.target.value })} autoFocus={!existing} />}
+          {(props) => <input {...props} className="input" placeholder="Ej. Pichincha Ahorros" value={form.name} onChange={(event) => update({ name: event.target.value })} data-autofocus={!existing || undefined} />}
         </Field>
         <div className="field-row">
           <Field label="Banco o institución">
@@ -188,11 +200,18 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
           </Field>
         )}
 
-        {allowsInterest && (showInterest ? (
+        {allowsInterest && !isCardAccount && (
+          <label className="check">
+            <input type="checkbox" checked={form.earnsInterest} onChange={(event) => update({ earnsInterest: event.target.checked })} />
+            <span>Esta cuenta genera intereses (cada mes anotas cuánto te pagaron)</span>
+          </label>
+        )}
+
+        {(isCardAccount || earnsInterest) && (showInterest || earnsInterest ? (
           <fieldset className="fieldset">
             <legend>{isCardAccount ? 'Tasa de la tarjeta' : 'Intereses'}</legend>
             <div className="field-row">
-              <Field label="Tasa anual (%)" error={errors.interestRate}>
+              <Field label="Tasa anual (%)" error={errors.interestRate} hint={isCardAccount ? undefined : 'Opcional: si no la sabes, se estima con lo que anotas.'}>
                 {(props) => <input {...props} className="input" inputMode="decimal" value={form.interestRate} onChange={(event) => update({ interestRate: event.target.value })} />}
               </Field>
               <Field label="Tipo de tasa">
@@ -235,10 +254,27 @@ export function AccountSheet({ existing, presetType, onSave, onClose }) {
                 {errors.deferralFactors && <p className="field-error" role="alert">{errors.deferralFactors}</p>}
               </>
             ) : (
-              <label className="check">
-                <input type="checkbox" checked={form.capitalizes} onChange={(event) => update({ capitalizes: event.target.checked })} />
-                <span>El interés se suma a esta misma cuenta</span>
-              </label>
+              <>
+                <label className="check">
+                  <input type="checkbox" checked={form.capitalizes} onChange={(event) => update({ capitalizes: event.target.checked })} />
+                  <span>El interés se suma a esta misma cuenta</span>
+                </label>
+                <div className="field-row">
+                  {!form.capitalizes && (
+                    <Field label="El interés llega a" error={errors.interestAccountId}>
+                      {(props) => (
+                        <select {...props} className="input" value={form.interestAccountId} onChange={(event) => update({ interestAccountId: event.target.value })}>
+                          <option value="">Elige…</option>
+                          {destinations.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+                        </select>
+                      )}
+                    </Field>
+                  )}
+                  <Field label="Retención (%)" error={errors.withholdingPct} hint="Opcional, para el SRI (ej. 2).">
+                    {(props) => <input {...props} className="input" inputMode="decimal" placeholder="—" value={form.withholdingPct} onChange={(event) => update({ withholdingPct: event.target.value })} />}
+                  </Field>
+                </div>
+              </>
             )}
           </fieldset>
         ) : (
@@ -304,7 +340,7 @@ export function AdjustBalanceSheet({ account, currentCents, onSave, onClose }) {
           Escribe {isCardAccount ? 'la deuda real que muestra tu banco' : 'el saldo real que muestra tu banco'}. La diferencia se registra como un ajuste visible, que no cuenta como ingreso ni gasto.
         </p>
         <Field label={isCardAccount ? 'Deuda real' : 'Saldo real'} error={error}>
-          {(props) => <input {...props} className="input input-amount" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} autoFocus />}
+          {(props) => <input {...props} className="input input-amount" inputMode="decimal" value={value} onChange={(event) => setValue(event.target.value)} data-autofocus />}
         </Field>
       </form>
     </Sheet>

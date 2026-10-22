@@ -269,7 +269,7 @@ export function TransactionSheet({
                 placeholder="0,00"
                 value={form.amount}
                 onChange={(event) => update({ amount: event.target.value })}
-                autoFocus={!existing && !defaults.recurringId}
+                data-autofocus={(!existing && !defaults.recurringId) || undefined}
               />
             )}
           </Field>

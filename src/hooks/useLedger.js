@@ -30,7 +30,7 @@ function friendlyError(error) {
 // Las acciones devuelven true/false para que los formularios no se cierren si falla el guardado.
 export function useLedger(userId, notify) {
   const [ledger, setLedger] = useState({
-    accounts: [], categories: [], transactions: [], recurring: [], notifications: [], settings: null, installments: [], statements: [], loans: [],
+    accounts: [], categories: [], transactions: [], recurring: [], notifications: [], settings: null, installments: [], statements: [], loans: [], goals: [],
   });
   const [status, setStatus] = useState('loading');
   const [loadError, setLoadError] = useState('');
@@ -225,6 +225,23 @@ export function useLedger(userId, notify) {
         }
         await api.runMyDailyJobs(supabase);
       }, existing ? 'Crédito actualizado' : 'Crédito creado'),
+      // Interés del mes anotado por el usuario: ingreso "Rendimientos financieros" en la cuenta (o en su cuenta destino).
+      saveInterest: (values, existing) => run(async () => {
+        const categoryId = await api.ensureInterestIncomeCategory(supabase, ledger.categories);
+        const row = { ...values, kind: 'ingreso', categoryId, status: 'confirmado', note: values.note ?? '' };
+        if (existing) await api.updateTransaction(supabase, existing.id, row);
+        else await api.createTransaction(supabase, row);
+      }, existing ? 'Interés actualizado' : 'Interés anotado'),
+      saveCategoryBudget: (category, values) => run(() => api.updateCategoryBudget(supabase, category.id, values)),
+      saveCategoryBudgets: (changes) => run(async () => {
+        await Promise.all(changes.map(([category, values]) => api.updateCategoryBudget(supabase, category.id, values)));
+      }, 'Categorías clasificadas'),
+      savePlanSettings: (values) => run(() => api.savePlanSettings(supabase, userId, values), 'Plan guardado'),
+      saveGoal: (values, existing) => run(
+        () => (existing ? api.updateGoal(supabase, existing.id, values) : api.createGoal(supabase, values)),
+        existing ? 'Meta actualizada' : 'Meta creada',
+      ),
+      archiveGoal: (goal) => run(() => api.setGoalArchived(supabase, goal.id, true), 'Meta archivada'),
       // Abono extra a capital; "reducir cuota" además guarda la cuota nueva.
       payLoanExtra: ({ loan, account, fromAccountId, cents, date, newPaymentCents }) => run(async () => {
         await api.createTransfer(supabase, {
@@ -233,7 +250,7 @@ export function useLedger(userId, notify) {
         if (newPaymentCents) await api.setLoanPayment(supabase, loan.id, newPaymentCents);
       }, 'Abono registrado'),
     };
-  }, [run, reload, notify, userId, laterOccurrences, ledger.accounts, ledger.installments]);
+  }, [run, reload, notify, userId, laterOccurrences, ledger.accounts, ledger.installments, ledger.categories]);
 
   return { ...ledger, balances, status, loadError, reload, actions };
 }

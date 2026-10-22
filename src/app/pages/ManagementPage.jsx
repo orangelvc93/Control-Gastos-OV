@@ -151,6 +151,7 @@ export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
 
       {accountType && (
         <AccountSheet
+          accounts={accounts}
           presetType={accountType}
           onSave={(values) => actions.saveAccount({ ...values, sortOrder: accounts.length + 1 })}
           onClose={() => setAccountType(null)}

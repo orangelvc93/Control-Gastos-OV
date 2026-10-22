@@ -27,6 +27,8 @@ function fromAccount(row) {
     isSavings: row.is_savings,
     minPaymentPct: Number(row.min_payment_pct ?? 10),
     deferralFactors: row.deferral_factors ?? {},
+    earnsInterest: Boolean(row.earns_interest),
+    withholdingPct: row.withholding_pct === null || row.withholding_pct === undefined ? null : Number(row.withholding_pct),
     color: row.color,
     sortOrder: row.sort_order,
     archivedAt: row.archived_at,
@@ -50,6 +52,9 @@ function toAccountRow(values) {
     capitalizes: values.capitalizes ?? true,
     min_payment_pct: values.minPaymentPct ?? 10,
     deferral_factors: values.deferralFactors ?? {},
+    earns_interest: Boolean(values.earnsInterest),
+    withholding_pct: values.withholdingPct ?? null,
+    interest_account_id: values.interestAccountId || null,
     color: values.color ?? 'purple',
   };
 }
@@ -62,6 +67,8 @@ function fromCategory(row) {
     sriCategory: row.sri_category,
     taxIncomeType: row.tax_income_type,
     isSystem: row.is_system,
+    budgetGroup: row.budget_group,
+    monthlyBudgetCents: row.monthly_budget === null || row.monthly_budget === undefined ? null : toCents(row.monthly_budget),
     archivedAt: row.archived_at,
   };
 }
@@ -83,6 +90,8 @@ function fromTransaction(row) {
     installmentId: row.installment_id,
     loanId: row.loan_id,
     loanNo: row.loan_no,
+    interestMonth: row.interest_month,
+    interestAccount: row.interest_account,
     createdAt: row.created_at,
     deletedAt: row.deleted_at,
   };
@@ -196,7 +205,8 @@ function fromNotification(row) {
   };
 }
 
-const defaultSettings = { telegramChatId: '', telegramEnabled: false, notifyDaysBefore: 2, cardUsageAlertPct: 30, monthlyIncomeCents: null };
+const defaultSettings = { telegramChatId: '', telegramEnabled: false, notifyDaysBefore: 2, cardUsageAlertPct: 30, monthlyIncomeCents: null,
+  planNeedsPct: 50, planWantsPct: 30, planSavingsPct: 20, emergencyAccountId: null };
 
 function fromSettings(row) {
   if (!row) return defaultSettings;
@@ -206,12 +216,16 @@ function fromSettings(row) {
     notifyDaysBefore: row.notify_days_before,
     cardUsageAlertPct: Number(row.card_usage_alert_pct),
     monthlyIncomeCents: row.monthly_income === null || row.monthly_income === undefined ? null : toCents(row.monthly_income),
+    planNeedsPct: Number(row.plan_needs_pct ?? 50),
+    planWantsPct: Number(row.plan_wants_pct ?? 30),
+    planSavingsPct: Number(row.plan_savings_pct ?? 20),
+    emergencyAccountId: row.emergency_account_id ?? null,
   };
 }
 
 // Ver countsForBalance en shared/lib/ledger.js: los movimientos anteriores al saldo inicial no lo cambian.
 export async function fetchLedger(supabase) {
-  const [accounts, categories, transactions, recurring, notifications, settings, installments, statements, loans] = await Promise.all([
+  const [accounts, categories, transactions, recurring, notifications, settings, installments, statements, loans, goals] = await Promise.all([
     supabase.from('accounts').select('*').order('sort_order').order('created_at'),
     supabase.from('categories').select('*').order('name'),
     supabase.from('transactions').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
@@ -221,6 +235,7 @@ export async function fetchLedger(supabase) {
     supabase.from('card_installments').select('*').order('created_at'),
     supabase.from('card_statements').select('*'),
     supabase.from('loans').select('*').order('created_at'),
+    supabase.from('goals').select('*').order('created_at'),
   ]);
 
   return {
@@ -233,7 +248,72 @@ export async function fetchLedger(supabase) {
     installments: check(installments).map(fromInstallment),
     statements: check(statements).map(fromStatement),
     loans: check(loans).map(fromLoan),
+    goals: check(goals).map(fromGoal),
   };
+}
+
+// Ahorro: presupuesto, intereses anotados y metas -----------------------------------
+
+function fromGoal(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    targetCents: toCents(row.target),
+    deadline: row.deadline,
+    accountId: row.account_id,
+    manualSavedCents: toCents(row.manual_saved),
+    startDate: row.start_date,
+    archivedAt: row.archived_at,
+  };
+}
+
+function toGoalRow(values) {
+  return {
+    name: values.name.trim(),
+    target: centsToDb(values.targetCents),
+    deadline: values.deadline || null,
+    account_id: values.accountId || null,
+    manual_saved: centsToDb(values.manualSavedCents ?? 0),
+    start_date: values.startDate,
+  };
+}
+
+export async function createGoal(supabase, values) {
+  check(await supabase.from('goals').insert(toGoalRow(values)));
+}
+
+export async function updateGoal(supabase, id, values) {
+  check(await supabase.from('goals').update(toGoalRow(values)).eq('id', id));
+}
+
+export async function setGoalArchived(supabase, id, archived) {
+  check(await supabase.from('goals').update({ archived_at: archived ? new Date().toISOString() : null }).eq('id', id));
+}
+
+export async function updateCategoryBudget(supabase, id, { budgetGroup, monthlyBudgetCents }) {
+  check(await supabase.from('categories').update({
+    budget_group: budgetGroup || null,
+    monthly_budget: monthlyBudgetCents ? centsToDb(monthlyBudgetCents) : null,
+  }).eq('id', id));
+}
+
+export async function savePlanSettings(supabase, userId, values) {
+  check(await supabase.from('user_settings').upsert({
+    user_id: userId,
+    plan_needs_pct: values.planNeedsPct,
+    plan_wants_pct: values.planWantsPct,
+    plan_savings_pct: values.planSavingsPct,
+    emergency_account_id: values.emergencyAccountId || null,
+  }));
+}
+
+// Categoría de los intereses ganados (cuenta para el SRI como rendimientos financieros).
+export async function ensureInterestIncomeCategory(supabase, categories) {
+  const found = categories.find((category) => category.kind === 'ingreso' && category.name === 'Rendimientos financieros');
+  if (found) return found.id;
+  return check(await supabase.from('categories').insert({
+    name: 'Rendimientos financieros', kind: 'ingreso', tax_income_type: 'rendimientos_financieros', is_system: true,
+  }).select('id').single()).id;
 }
 
 // Tarjetas: diferidos y estados de cuenta -----------------------------------------
@@ -319,6 +399,8 @@ export async function createTransaction(supabase, values) {
     note: values.note.trim(),
     recurring_id: values.recurringId ?? null,
     occurrence_date: values.occurrenceDate ?? null,
+    interest_month: values.interestMonth ?? null,
+    interest_account: values.interestAccount ?? null,
   }).select('id').single()).id;
 }
 

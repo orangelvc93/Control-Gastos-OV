@@ -9,7 +9,11 @@ export function Sheet({ title, children, footer, onClose, size = 'md' }) {
 
   useEffect(() => {
     const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+      // showModal() enfoca el primer botón (Cerrar); se pasa al campo marcado con data-autofocus.
+      dialog.querySelector('[data-autofocus]')?.focus();
+    }
     return () => dialog?.open && dialog.close();
   }, []);
 

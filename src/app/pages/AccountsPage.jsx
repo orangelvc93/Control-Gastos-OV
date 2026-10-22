@@ -11,6 +11,7 @@ import { Icon } from '../ui/Icon';
 import {
   cardTabs, CardSummary, ExistingInstallmentSheet, InstallmentsView, PayCardSheet, StatementNoteSheet, StatementView,
 } from './CardPanels';
+import { InterestPanel, InterestSheet, interestTabs } from './InterestPanels';
 import { ExtraPaymentSheet, LoanSheet, LoanSimulator, LoanSummary, LoanTable, loanTabs } from './LoanPanels';
 
 function AccountCard({ account, balance, loanProgress, onOpen }) {
@@ -116,7 +117,7 @@ export function AccountsPage({ ledger, navigate }) {
         </section>
       )}
 
-      {creating && <AccountSheet onSave={(values) => actions.saveAccount({ ...values, sortOrder: accounts.length + 1 })} onClose={() => setCreating(false)} />}
+      {creating && <AccountSheet accounts={accounts} onSave={(values) => actions.saveAccount({ ...values, sortOrder: accounts.length + 1 })} onClose={() => setCreating(false)} />}
     </div>
   );
 }
@@ -131,6 +132,7 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
   const [noting, setNoting] = useState(null);
   const [installmentSheet, setInstallmentSheet] = useState(null);
   const [extraPayment, setExtraPayment] = useState(null);
+  const [interestSheet, setInterestSheet] = useState(null);
   const account = accounts.find((item) => item.id === accountId);
   const loan = ledger.loans.find((item) => item.accountId === accountId);
 
@@ -146,7 +148,10 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
   const card = isCard(account);
   const cardTabsOn = card && cardReady(account);
   const loanTabsOn = Boolean(loan);
-  const tabs = cardTabsOn ? cardTabs : loanTabsOn ? loanTabs : null;
+  const interestOn = account.earnsInterest && !isDebt(account);
+  const tabs = cardTabsOn ? cardTabs : loanTabsOn ? loanTabs : interestOn ? interestTabs : null;
+  // Cada tipo de cuenta tiene sus pestañas; si la elegida no existe en esta, se abre la primera.
+  const activeTab = tabs && !tabs.some(([key]) => key === tab) ? tabs[0][0] : tab;
   const breakdown = accountBreakdown(account, transactions);
   const rows = withRunningBalance(account, transactions);
   const lines = [
@@ -208,16 +213,16 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
       {tabs && (
         <div className="chips tabs" role="tablist" aria-label={loan ? 'Secciones del crédito' : 'Secciones de la tarjeta'}>
           {tabs.map(([key, label]) => (
-            <button key={key} type="button" role="tab" aria-selected={tab === key} className={`chip ${tab === key ? 'is-active' : ''}`} onClick={() => setTab(key)}>
+            <button key={key} type="button" role="tab" aria-selected={activeTab === key} className={`chip ${activeTab === key ? 'is-active' : ''}`} onClick={() => setTab(key)}>
               {label}
             </button>
           ))}
         </div>
       )}
 
-      {cardTabsOn && tab === 'resumen' && <CardSummary account={account} ledger={ledger} onPay={setPaying} onNote={setNoting} />}
-      {cardTabsOn && tab === 'estado' && <StatementView account={account} ledger={ledger} categories={categories} onNote={setNoting} />}
-      {cardTabsOn && tab === 'diferidos' && (
+      {cardTabsOn && activeTab === 'resumen' && <CardSummary account={account} ledger={ledger} onPay={setPaying} onNote={setNoting} />}
+      {cardTabsOn && activeTab === 'estado' && <StatementView account={account} ledger={ledger} categories={categories} onNote={setNoting} />}
+      {cardTabsOn && activeTab === 'diferidos' && (
         <InstallmentsView
           account={account}
           ledger={ledger}
@@ -227,11 +232,13 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
         />
       )}
 
-      {loan && tab === 'resumen' && <LoanSummary loan={loan} account={account} ledger={ledger} onExtra={() => setTab('simulador')} />}
-      {loan && tab === 'tabla' && <LoanTable loan={loan} account={account} ledger={ledger} />}
-      {loan && tab === 'simulador' && <LoanSimulator loan={loan} account={account} ledger={ledger} onRegister={setExtraPayment} />}
+      {loan && activeTab === 'resumen' && <LoanSummary loan={loan} account={account} ledger={ledger} onExtra={() => setTab('simulador')} />}
+      {loan && activeTab === 'tabla' && <LoanTable loan={loan} account={account} ledger={ledger} />}
+      {loan && activeTab === 'simulador' && <LoanSimulator loan={loan} account={account} ledger={ledger} onRegister={setExtraPayment} />}
 
-      {(!tabs || tab === 'movimientos') && (
+      {interestOn && activeTab === 'intereses' && <InterestPanel account={account} ledger={ledger} onNote={setInterestSheet} />}
+
+      {(!tabs || activeTab === 'movimientos') && (
         <section className="card" aria-label="Movimientos de la cuenta">
           <TransactionList
             items={rows}
@@ -259,7 +266,18 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
 
       {editing && (loan
         ? <LoanSheet existing={{ loan, account }} accounts={accounts} onSave={actions.saveLoan} onClose={() => setEditing(false)} />
-        : <AccountSheet existing={account} onSave={actions.saveAccount} onClose={() => setEditing(false)} />)}
+        : <AccountSheet existing={account} accounts={accounts} onSave={actions.saveAccount} onClose={() => setEditing(false)} />)}
+      {interestSheet && (
+        <InterestSheet
+          account={account}
+          accounts={accounts}
+          ledger={ledger}
+          existing={interestSheet.existing}
+          onSave={actions.saveInterest}
+          onTrash={actions.trashTransaction}
+          onClose={() => setInterestSheet(null)}
+        />
+      )}
       {extraPayment && (
         <ExtraPaymentSheet
           loan={loan}
