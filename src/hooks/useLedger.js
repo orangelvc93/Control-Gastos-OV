@@ -204,6 +204,10 @@ export function useLedger(userId, notify) {
         () => (existing ? api.updateInstallment(supabase, existing.id, values) : api.createInstallment(supabase, values)),
         existing ? 'Diferido actualizado' : 'Diferido agregado',
       ),
+      prepayInstallment: (plan, values) => run(
+        () => api.setInstallmentPrepaid(supabase, plan.id, values),
+        values.cut ? 'Precancelación registrada' : 'Precancelación deshecha',
+      ),
       archiveInstallment: (plan) => run(() => api.setInstallmentArchived(supabase, plan.id, true), 'Diferido eliminado'),
       saveStatement: (values) => run(() => api.saveStatement(supabase, values), 'Estado de cuenta anotado'),
       payCard: (values) => run(() => api.createTransfer(supabase, values), 'Pago de la tarjeta registrado'),

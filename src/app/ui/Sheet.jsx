@@ -5,6 +5,7 @@ import { Icon } from './Icon';
 // En el celular aparece como hoja desde abajo; en pantallas grandes, centrado.
 export function Sheet({ title, children, footer, onClose, size = 'md' }) {
   const ref = useRef(null);
+  const pressedOnBackdrop = useRef(false);
   const titleId = useId();
 
   useEffect(() => {
@@ -26,8 +27,14 @@ export function Sheet({ title, children, footer, onClose, size = 'md' }) {
         event.preventDefault();
         onClose();
       }}
+      // Solo cierra si el clic empieza y termina en el fondo: al arrastrar desde un campo
+      // (por ejemplo seleccionando texto) y soltar fuera, el navegador también lo marca como clic en el fondo.
+      onPointerDown={(event) => {
+        pressedOnBackdrop.current = event.target === ref.current;
+      }}
       onClick={(event) => {
-        if (event.target === ref.current) onClose();
+        if (event.target === ref.current && pressedOnBackdrop.current) onClose();
+        pressedOnBackdrop.current = false;
       }}
     >
       <div className="sheet-panel">

@@ -1,8 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
-import './styles.css';
-import './app/app.css';
+import './index.css';
 
 // Solo en producción: en desarrollo el service worker guardaría versiones viejas del código.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

@@ -1,10 +1,43 @@
 import { useState } from 'react';
 import { formatCents } from '../../shared/lib/cents';
 import { kindLabels, sriCategoryLabels } from '../../shared/lib/ledger';
+import { readThemePref, saveThemePref } from '../../shared/lib/theme';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Field } from '../ui/Field';
 import { Icon } from '../ui/Icon';
 import { Sheet } from '../ui/Sheet';
+
+const themeOptions = [['sistema', 'Sistema'], ['claro', 'Claro'], ['oscuro', 'Oscuro']];
+
+// Apariencia: primer bloque hecho con clases de Tailwind (los colores salen de los tokens de la app).
+function ThemePicker() {
+  const [pref, setPref] = useState(readThemePref);
+  return (
+    <section className="card grid gap-3" aria-labelledby="theme-title">
+      <div>
+        <h2 id="theme-title" className="m-0 text-lg">Apariencia</h2>
+        <p className="m-0 text-sm text-muted">"Sistema" sigue el modo claro u oscuro de tu celular o computadora. Se guarda en este dispositivo.</p>
+      </div>
+      <div className="grid grid-cols-3 gap-1 rounded-md border border-border bg-surface-2 p-1" role="radiogroup" aria-label="Tema">
+        {themeOptions.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={pref === value}
+            onClick={() => {
+              setPref(value);
+              saveThemePref(value);
+            }}
+            className={`min-h-10 rounded-sm text-sm font-semibold transition-colors ${pref === value ? 'bg-surface text-text shadow-sm' : 'bg-transparent text-muted hover:text-text'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function MorePage({ ledger, navigate, onLogout, userEmail }) {
   const trashCount = new Set(ledger.transactions.filter((item) => item.deletedAt).map((item) => item.transferId ?? item.id)).size;
@@ -23,9 +56,10 @@ export function MorePage({ ledger, navigate, onLogout, userEmail }) {
   ];
 
   return (
-    <div className="page">
+    <div className="page page-split">
       <div className="page-head"><h1>Más</h1></div>
-      <ul className="menu-list">
+      <ThemePicker />
+      <ul className="menu-list min-[1100px]:grid-cols-2 min-[1100px]:gap-2">
         {links.map(([path, icon, title, hint]) => (
           <li key={path}>
             <button type="button" className="menu-item" onClick={() => navigate(path)}>
@@ -50,6 +84,7 @@ export function MorePage({ ledger, navigate, onLogout, userEmail }) {
 function CategorySheet({ kind, existing, onSave, onClose }) {
   const [name, setName] = useState(existing?.name ?? '');
   const [sriCategory, setSriCategory] = useState(existing?.sriCategory ?? '');
+  const [countsAsIncome, setCountsAsIncome] = useState(existing?.countsAsIncome ?? true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const categoryKind = existing?.kind ?? kind;
@@ -61,7 +96,7 @@ function CategorySheet({ kind, existing, onSave, onClose }) {
       return;
     }
     setBusy(true);
-    const saved = await onSave({ name, kind: categoryKind, sriCategory }, existing);
+    const saved = await onSave({ name, kind: categoryKind, sriCategory, countsAsIncome }, existing);
     setBusy(false);
     if (saved) onClose();
   }
@@ -92,6 +127,15 @@ function CategorySheet({ kind, existing, onSave, onClose }) {
               </select>
             )}
           </Field>
+        )}
+        {categoryKind === 'ingreso' && (
+          <label className="check">
+            <input type="checkbox" checked={countsAsIncome} onChange={(event) => setCountsAsIncome(event.target.checked)} />
+            <span>
+              Cuenta como ingreso disponible. Desmárcalo para aportes que tu trabajo deposita directo en un fondo (como Anefi):
+              suman al saldo de esa cuenta, pero no al ingreso del mes, al presupuesto ni al % de endeudamiento.
+            </span>
+          </label>
         )}
       </form>
     </Sheet>
@@ -124,6 +168,7 @@ export function CategoriesPage({ ledger, navigate }) {
                   <small>
                     {[
                       category.sriCategory && `SRI: ${sriCategoryLabels[category.sriCategory]}`,
+                      category.kind === 'ingreso' && !category.countsAsIncome && 'No es ingreso disponible',
                       category.isSystem && 'Del sistema',
                       category.archivedAt && 'Archivada',
                       `${usage[category.id] ?? 0} movimiento(s)`,

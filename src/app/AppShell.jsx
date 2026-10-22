@@ -1,5 +1,7 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useLedger } from '../hooks/useLedger';
+import { setAmountsHidden } from '../shared/lib/cents';
+import { watchSystemTheme } from '../shared/lib/theme';
 import { TransactionSheet } from './components/TransactionSheet';
 import { AccountDetailPage, AccountsPage } from './pages/AccountsPage';
 import { HomePage } from './pages/HomePage';
@@ -19,6 +21,17 @@ const BudgetPage = savingsPage('BudgetPage');
 const GoalsPage = savingsPage('GoalsPage');
 const YieldsPage = savingsPage('YieldsPage');
 const LegacyBook = lazy(() => import('../features/legacy/LegacyBook').then((module) => ({ default: module.LegacyBook })));
+
+// Modo privado: se guarda en este dispositivo y no se borra al cerrar sesión.
+const HIDE_AMOUNTS_KEY = 'cg-ocultar-montos';
+
+function readHidden() {
+  try {
+    return window.localStorage.getItem(HIDE_AMOUNTS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 const navItems = [
   ['/', 'home', 'Inicio'],
@@ -46,6 +59,21 @@ export function AppShell({ user, onLogout }) {
   const section = sectionOf(path, false);
   const sideSection = sectionOf(path, true);
   const unread = ledger.notifications.filter((item) => !item.readAt).length;
+  const [hidden, setHidden] = useState(readHidden);
+  // Se fija durante el render para que todo lo que se dibuja ya salga con o sin montos.
+  setAmountsHidden(hidden);
+  useEffect(watchSystemTheme, []);
+
+  function toggleHidden() {
+    setHidden((current) => {
+      try {
+        window.localStorage.setItem(HIDE_AMOUNTS_KEY, current ? '0' : '1');
+      } catch {
+        // Sin almacenamiento (modo incógnito): solo dura mientras la app esté abierta.
+      }
+      return !current;
+    });
+  }
 
   function openNew(defaults = {}) {
     setSheet({ defaults });
@@ -150,6 +178,19 @@ export function AppShell({ user, onLogout }) {
     page = <HomePage {...pageProps} />;
   }
 
+  const privacy = (
+    <button
+      type="button"
+      className={`icon-button ${hidden ? 'is-active' : ''}`}
+      onClick={toggleHidden}
+      aria-pressed={hidden}
+      aria-label={hidden ? 'Mostrar montos' : 'Ocultar montos'}
+      title={hidden ? 'Mostrar montos' : 'Ocultar montos'}
+    >
+      <Icon name={hidden ? 'eyeOff' : 'eye'} />
+    </button>
+  );
+
   const bell = (
     <a href="#/avisos" className={`icon-button bell ${path === '/avisos' ? 'is-active' : ''}`} aria-label={unread ? `Avisos, ${unread} sin leer` : 'Avisos'}>
       <Icon name="bell" />
@@ -169,6 +210,7 @@ export function AppShell({ user, onLogout }) {
           <a href="#/dashboard" className={`icon-button ${path === '/dashboard' ? 'is-active' : ''}`} aria-label="Dashboard">
             <Icon name="chart" />
           </a>
+          {privacy}
           {bell}
         </span>
       </header>
@@ -179,7 +221,10 @@ export function AppShell({ user, onLogout }) {
             <span className="brand-mark" aria-hidden="true">$</span>
             <span>Control de gastos</span>
           </div>
-          {bell}
+          <span className="topbar-actions">
+            {privacy}
+            {bell}
+          </span>
         </div>
         <button type="button" className="btn btn-primary btn-block" onClick={() => openNew()}>
           <Icon name="plus" size={18} /> Nuevo movimiento

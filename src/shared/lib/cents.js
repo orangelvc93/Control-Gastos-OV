@@ -13,7 +13,26 @@ export function centsToDb(cents) {
   return (cents / 100).toFixed(2);
 }
 
+// Modo privado (el ojito): los montos se muestran ocultos en toda la app.
+// AppShell lo fija antes de dibujar, así que todo lo que se vuelve a dibujar ya sale oculto.
+export const HIDDEN_AMOUNT = '$ •••••';
+let amountsHidden = false;
+
+export function setAmountsHidden(value) {
+  amountsHidden = Boolean(value);
+}
+
+export function areAmountsHidden() {
+  return amountsHidden;
+}
+
+// Para textos que ya traen montos escritos (por ejemplo los avisos del servidor).
+export function maskAmountsInText(text) {
+  return amountsHidden ? String(text ?? '').replace(/-?\$\s?-?[\d.,]+/g, HIDDEN_AMOUNT) : text;
+}
+
 export function formatCents(cents) {
+  if (amountsHidden) return HIDDEN_AMOUNT;
   // `|| 0` convierte -0 en 0: evita mostrar "$-0,00".
   return money.format((cents || 0) / 100);
 }

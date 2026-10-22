@@ -69,6 +69,7 @@ function fromCategory(row) {
     isSystem: row.is_system,
     budgetGroup: row.budget_group,
     monthlyBudgetCents: row.monthly_budget === null || row.monthly_budget === undefined ? null : toCents(row.monthly_budget),
+    countsAsIncome: row.counts_as_income !== false,
     archivedAt: row.archived_at,
   };
 }
@@ -126,6 +127,8 @@ function fromInstallment(row) {
     withInterest: row.with_interest,
     firstCut: row.first_cut,
     inOpening: row.in_opening,
+    prepaidCut: row.prepaid_cut,
+    prepaidCount: row.prepaid_count,
     archivedAt: row.archived_at,
   };
 }
@@ -238,10 +241,15 @@ export async function fetchLedger(supabase) {
     supabase.from('goals').select('*').order('created_at'),
   ]);
 
+  const mappedCategories = check(categories).map(fromCategory);
+  const notIncome = new Set(mappedCategories.filter((category) => !category.countsAsIncome).map((category) => category.id));
   return {
     accounts: check(accounts).map(fromAccount),
-    categories: check(categories).map(fromCategory),
-    transactions: check(transactions).map(fromTransaction),
+    categories: mappedCategories,
+    // Cada ingreso lleva si cuenta como ingreso disponible (los aportes que llegan directo a un fondo no).
+    transactions: check(transactions).map(fromTransaction).map((transaction) => (
+      transaction.kind === 'ingreso' && notIncome.has(transaction.categoryId) ? { ...transaction, countsAsIncome: false } : transaction
+    )),
     recurring: check(recurring).map(fromRecurring),
     notifications: check(notifications).map(fromNotification),
     settings: fromSettings(check(settings)),
@@ -337,6 +345,11 @@ export async function createInstallment(supabase, values) {
 
 export async function updateInstallment(supabase, id, values) {
   check(await supabase.from('card_installments').update(toInstallmentRow(values)).eq('id', id));
+}
+
+// Precancelar: las últimas `count` cuotas se cobran juntas en el corte `cut` (null para deshacer).
+export async function setInstallmentPrepaid(supabase, id, { cut, count }) {
+  check(await supabase.from('card_installments').update({ prepaid_cut: cut ?? null, prepaid_count: cut ? count : null }).eq('id', id));
 }
 
 export async function setInstallmentArchived(supabase, id, archived) {
@@ -514,6 +527,7 @@ export async function createCategory(supabase, values) {
     name: values.name.trim(),
     kind: values.kind,
     sri_category: values.sriCategory || null,
+    counts_as_income: values.kind !== 'ingreso' || values.countsAsIncome !== false,
   }));
 }
 
@@ -521,6 +535,7 @@ export async function updateCategory(supabase, id, values) {
   check(await supabase.from('categories').update({
     name: values.name.trim(),
     sri_category: values.sriCategory || null,
+    counts_as_income: values.kind !== 'ingreso' || values.countsAsIncome !== false,
   }).eq('id', id));
 }
 

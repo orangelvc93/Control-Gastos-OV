@@ -78,7 +78,7 @@ function split(total, parts) {
 // Sin intereses: cuotas iguales (el centavo que sobra va en la última).
 // Con intereses: con el factor del banco (interés total = monto × factor, repartido en cuotas iguales);
 // si la tarjeta no tiene factor para ese plazo, sistema francés con la tasa de la tarjeta.
-export function installmentSchedule(plan, account) {
+function baseSchedule(plan, account) {
   const factor = plan.withInterest ? deferralFactor(account, plan.months) : null;
   if (factor) {
     const capitals = split(plan.principalCents, plan.months);
@@ -107,6 +107,34 @@ export function installmentSchedule(plan, account) {
     rows.push({ n, cut: shiftCut(plan.firstCut, n - 1, account.statementDay), capital, interest, payment: capital + interest, balanceAfter: balance });
   }
   return rows;
+}
+
+// Cuotas del diferido. Si se precancela, las últimas `prepaidCount` cuotas no se cobran por separado:
+// su capital se cobra en el corte `prepaidCut` y sus intereses ya no se generan (aproximación del recálculo del banco).
+export function installmentSchedule(plan, account) {
+  const rows = baseSchedule(plan, account);
+  if (!plan.prepaidCut || !plan.prepaidCount) return rows;
+  const keep = rows.slice(0, Math.max(0, rows.length - plan.prepaidCount));
+  const prepaidCents = sumCents(rows.slice(keep.length), (row) => row.capital);
+  const target = keep.find((row) => row.cut === plan.prepaidCut);
+  const result = target
+    ? keep.map((row) => (row === target ? { ...row, capital: row.capital + prepaidCents, prepaidCents } : row))
+    : [...keep, { n: keep.length + 1, cut: plan.prepaidCut, capital: prepaidCents, interest: 0, prepaidCents }].sort((a, b) => (a.cut < b.cut ? -1 : 1));
+  let left = plan.principalCents;
+  return result.map((row) => {
+    left -= row.capital;
+    return { ...row, payment: row.capital + row.interest, balanceAfter: left };
+  });
+}
+
+// Lo que se puede precancelar si se hace en el corte `cut`: las cuotas que vienen después de ese corte.
+export function prepayOptions(plan, account, cut) {
+  const rows = baseSchedule(plan, account);
+  const after = rows.filter((row) => row.cut > cut);
+  return after.map((_, index) => {
+    const prepaid = after.slice(after.length - (index + 1));
+    return { count: index + 1, capital: sumCents(prepaid, (row) => row.capital), interestSaved: sumCents(prepaid, (row) => row.interest) };
+  });
 }
 
 // Diferidos vigentes: los que ya tenías al empezar (dentro del saldo inicial) o cuya compra sigue activa.
@@ -248,11 +276,12 @@ export function planSummary(plan, account, today) {
   const billed = rows.filter((row) => row.cut <= today).length;
   return {
     rows,
-    payment: rows[0]?.payment ?? 0,
+    // Cuota normal, sin la precancelación.
+    payment: baseSchedule(plan, account)[0]?.payment ?? 0,
     billed,
     pendingCapital: sumCents(rows.filter((row) => row.cut > today), (row) => row.capital),
     totalInterest: sumCents(rows, (row) => row.interest),
     lastCut: rows.at(-1)?.cut,
-    finished: billed >= plan.months,
+    finished: billed >= rows.length,
   };
 }

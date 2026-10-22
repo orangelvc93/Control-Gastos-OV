@@ -1,6 +1,6 @@
 import { monthlyRate as cardMonthlyRate } from './cards';
 import { sumCents } from './cents';
-import { activeTransactions, isCard, monthKey, shiftMonth } from './ledger';
+import { activeTransactions, isAvailableIncome, isCard, monthKey, shiftMonth } from './ledger';
 import { frenchPayment, loanMonthlyRate, loanState } from './loans';
 
 // Plan para salir de deudas: lista consolidada, endeudamiento y simulación avalancha vs. bola de nieve. Todo en centavos.
@@ -45,7 +45,7 @@ export function monthlyIncome(transactions, settings, today) {
   if (settings?.monthlyIncomeCents) return { cents: settings.monthlyIncomeCents, source: 'anotado' };
   const current = monthKey(today);
   const months = [1, 2, 3].map((delta) => shiftMonth(current, -delta));
-  const income = activeTransactions(transactions).filter((transaction) => transaction.kind === 'ingreso' && transaction.status === 'confirmado');
+  const income = activeTransactions(transactions).filter((transaction) => isAvailableIncome(transaction) && transaction.status === 'confirmado');
   const totals = months.map((month) => sumCents(income.filter((transaction) => monthKey(transaction.date) === month), (transaction) => transaction.cents));
   const withData = totals.filter((total) => total > 0);
   if (withData.length) return { cents: Math.round(sumCents(withData) / withData.length), source: 'promedio', months: withData.length };

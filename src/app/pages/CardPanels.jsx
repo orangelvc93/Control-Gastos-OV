@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
-  activePlans, canChargeInterest, cardStatus, cutOnOrBefore, partialPaymentInterest, planSummary, shiftCut, statementCuts, statementFor,
+  activePlans, canChargeInterest, cardStatus, cutOnOrAfter, cutOnOrBefore, partialPaymentInterest, planSummary, prepayOptions, shiftCut,
+  statementCuts, statementFor,
 } from '../../shared/lib/cards';
 import { centsToInput, formatCents, parseAmountInput, sumCents } from '../../shared/lib/cents';
-import { today } from '../../shared/lib/date';
+import { addDays, today } from '../../shared/lib/date';
 import { isDebt } from '../../shared/lib/ledger';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { DateField } from '../ui/DateField';
@@ -175,7 +176,7 @@ export function StatementView({ account, ledger, categories, onNote }) {
           label="Cuotas de diferidos"
           cents={installmentsCents}
           sign="+ "
-          items={statement.installmentsDue.map(({ plan, row }) => [`${plan.id}:${row.n}`, `${plan.description || 'Diferido'} · cuota ${row.n}/${plan.months}`, row.capital])}
+          items={statement.installmentsDue.map(({ plan, row }) => [`${plan.id}:${row.n}`, `${plan.description || 'Diferido'} · cuota ${row.n}/${plan.months}${row.prepaidCents ? ` + precancelación (${plan.prepaidCount} cuotas)` : ''}`, row.capital])}
         />
         {interests > 0 && <Line label="Intereses de diferidos" cents={interests} sign="+ " items={txItems(statement.interests)} />}
         {others !== 0 && <Line label="Ajustes y otros cargos" cents={Math.abs(others)} sign={others > 0 ? '+ ' : '− '} items={txItems(statement.others)} />}
@@ -214,7 +215,7 @@ export function StatementView({ account, ledger, categories, onNote }) {
 
 // Diferidos ---------------------------------------------------------------------------
 
-export function InstallmentsView({ account, ledger, onOpenPurchase, onAddExisting, onEditExisting }) {
+export function InstallmentsView({ account, ledger, onOpenPurchase, onAddExisting, onEditExisting, onPrepay }) {
   const day = today();
   const plans = activePlans(ledger.installments, account, ledger.transactions);
   const summaries = plans.map((plan) => ({ plan, summary: planSummary(plan, account, day) }));
@@ -222,14 +223,15 @@ export function InstallmentsView({ account, ledger, onOpenPurchase, onAddExistin
   const finished = summaries.filter(({ summary }) => summary.finished);
 
   const item = ({ plan, summary }) => (
-    <li key={plan.id}>
+    <li key={plan.id} className="plan-item">
       <button type="button" className="plan-row" onClick={() => (plan.inOpening ? onEditExisting(plan) : onOpenPurchase(plan.purchase))}>
         <span className="due-text">
           <strong>{plan.description || 'Diferido'}</strong>
           <small>
-            {summary.billed}/{plan.months} cuotas cobradas · termina el {shortDate(summary.lastCut)}
+            {summary.billed}/{summary.rows.length} cuotas cobradas · termina el {shortDate(summary.lastCut)}
             {plan.withInterest ? ` · ${formatCents(summary.totalInterest)} de intereses` : ' · sin intereses'}
             {plan.inOpening ? ' · ya lo tenías al empezar' : ''}
+            {plan.prepaidCut ? ` · precancelaste ${plan.prepaidCount} cuota(s) en el corte del ${shortDate(plan.prepaidCut)}` : ''}
           </small>
         </span>
         <span className="plan-figures">
@@ -237,6 +239,11 @@ export function InstallmentsView({ account, ledger, onOpenPurchase, onAddExistin
           <small>falta {formatCents(summary.pendingCapital)}</small>
         </span>
       </button>
+      {!summary.finished && (
+        <button type="button" className="btn btn-secondary btn-small" onClick={() => onPrepay(plan)}>
+          {plan.prepaidCut ? 'Cambiar precancelación' : 'Precancelar'}
+        </button>
+      )}
     </li>
   );
 
@@ -498,6 +505,93 @@ export function ExistingInstallmentSheet({ account, existing, onSave, onDelete, 
             return done;
           }}
           onClose={() => setConfirmDelete(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// Precancelar un diferido: todo lo que falta o solo algunas cuotas (las últimas).
+// Lo precancelado se cobra en el próximo corte y esas cuotas dejan de generar intereses.
+export function PrepaySheet({ account, plan, onSave, onClose }) {
+  const cut = cutOnOrAfter(addDays(today(), 1), account.statementDay);
+  const options = prepayOptions(plan, account, cut);
+  const [count, setCount] = useState(String(plan.prepaidCut ? plan.prepaidCount : options.length));
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirmUndo, setConfirmUndo] = useState(false);
+  const all = Number(count) === options.length;
+  const chosen = options.find((option) => option.count === Number(count));
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!chosen) return setError(`Elige entre 1 y ${options.length} cuotas.`);
+    setBusy(true);
+    const saved = await onSave(plan, { cut, count: chosen.count });
+    setBusy(false);
+    if (saved) onClose();
+  }
+
+  return (
+    <>
+      <Sheet
+        title={`Precancelar: ${plan.description || 'Diferido'}`}
+        size="sm"
+        onClose={onClose}
+        footer={(
+          <>
+            {plan.prepaidCut && <button type="button" className="btn btn-ghost-danger" onClick={() => setConfirmUndo(true)}>Deshacer</button>}
+            <span className="spacer" />
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+            <button type="submit" form="prepay-form" className="btn btn-primary" disabled={busy || !options.length} aria-busy={busy}>{busy ? 'Guardando…' : 'Precancelar'}</button>
+          </>
+        )}
+      >
+        {options.length ? (
+          <form id="prepay-form" className="form-stack" onSubmit={submit} noValidate>
+            <div className="choice-list" role="radiogroup" aria-label="Qué precancelar">
+              <label className="check">
+                <input type="radio" name="prepay" checked={all} onChange={() => setCount(String(options.length))} />
+                <span>Todo lo que falta ({options.length} cuota(s))</span>
+              </label>
+              {options.length > 1 && (
+                <label className="check">
+                  <input type="radio" name="prepay" checked={!all} onChange={() => setCount('1')} />
+                  <span>Solo algunas cuotas</span>
+                </label>
+              )}
+            </div>
+            {!all && (
+              <Field label="Cuántas cuotas" error={error} hint="Se descuentan las últimas: el diferido termina antes y la cuota mensual sigue igual.">
+                {(props) => <input {...props} className="input" inputMode="numeric" value={count} onChange={(event) => setCount(event.target.value)} />}
+              </Field>
+            )}
+            {chosen && (
+              <dl className="figures">
+                <div><dt>Se suma al estado de cuenta del {shortDate(cut)}</dt><dd>{formatCents(chosen.capital)}</dd></div>
+                <div><dt>Intereses que te ahorras</dt><dd>{formatCents(chosen.interestSaved)}</dd></div>
+              </dl>
+            )}
+            <p className="form-hint">
+              Esto no mueve dinero: el capital ya está en tu deuda, solo cambia cuándo te lo cobran. Cuando pagues la tarjeta, registra el pago como siempre.
+              Si el valor del banco difiere un poco, se corrige con el estado de cuenta.
+            </p>
+          </form>
+        ) : (
+          <p className="empty">Ya no quedan cuotas por cobrar después del próximo corte.</p>
+        )}
+      </Sheet>
+      {confirmUndo && (
+        <ConfirmDialog
+          title="¿Deshacer la precancelación?"
+          message="El diferido vuelve a cobrarse en sus cuotas normales."
+          confirmLabel="Deshacer"
+          onConfirm={async () => {
+            const done = await onSave(plan, { cut: null });
+            if (done) onClose();
+            return done;
+          }}
+          onClose={() => setConfirmUndo(false)}
         />
       )}
     </>

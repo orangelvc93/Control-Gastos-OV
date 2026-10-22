@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { formatCents, parseAmountInput, sumCents } from '../../shared/lib/cents';
+import { areAmountsHidden, formatCents, HIDDEN_AMOUNT, parseAmountInput, sumCents } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
 import {
   comparePlans, debtList, debtRatio, HEALTHY_DEBT_PCT, HIGH_DEBT_PCT, monthlyIncome, newDebtImpact,
@@ -16,8 +16,10 @@ import { Icon } from '../ui/Icon';
 const COLORS = { avalancha: '#3987e5', bola: '#d95926', minimos: '#9085e9' };
 const axis = { stroke: '#968ca8', fontSize: 12 };
 const grid = 'rgba(255,255,255,0.08)';
-const money = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-const compact = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 });
+const currency = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+const money = { format: (value) => (areAmountsHidden() ? HIDDEN_AMOUNT : currency.format(value)) };
+const compactCurrency = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 });
+const compact = { format: (value) => (areAmountsHidden() ? '•••' : compactCurrency.format(value)) };
 const pctText = (value) => `${value.toLocaleString('es-EC', { maximumFractionDigits: 1 })} %`;
 const levelText = { sano: 'Sano', cuidado: 'Con cuidado', alto: 'Alto' };
 

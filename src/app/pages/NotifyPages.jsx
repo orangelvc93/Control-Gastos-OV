@@ -4,6 +4,7 @@ import { supabase } from '../../api/supabaseClient';
 import { Field } from '../ui/Field';
 import { Icon } from '../ui/Icon';
 import { useNotify } from '../ui/Toast';
+import { maskAmountsInText } from '../../shared/lib/cents';
 
 function timeAgo(iso) {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -66,7 +67,7 @@ export function NotificationsPage({ ledger, navigate }) {
                   <span className="notice-dot" aria-hidden="true" />
                   <span className="notice-text">
                     <strong>{item.title}</strong>
-                    <span>{item.body}</span>
+                    <span>{maskAmountsInText(item.body)}</span>
                     <small>{timeAgo(item.createdAt)}{item.sentTelegram ? ' · enviado a Telegram' : ''}{freshIds.has(item.id) ? ' · nuevo' : ''}</small>
                   </span>
                 </button>

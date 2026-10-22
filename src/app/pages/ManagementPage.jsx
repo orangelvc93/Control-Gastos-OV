@@ -33,12 +33,13 @@ export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
   const paused = recurring.filter((item) => item.archivedAt);
 
   return (
-    <div className="page">
-      <div className="page-head">
+    // En pantallas grandes: crear cuenta a todo el ancho; frecuentes a la derecha y el resto a la izquierda.
+    <div className="page page-split min-[1100px]:grid-cols-2 min-[1100px]:grid-flow-dense min-[1100px]:items-start">
+      <div className="page-head min-[1100px]:col-span-2">
         <h1>Gestión</h1>
       </div>
 
-      <section className="card" aria-labelledby="mg-accounts">
+      <section className="card min-[1100px]:col-span-2" aria-labelledby="mg-accounts">
         <div className="card-head">
           <h2 id="mg-accounts">Crear una cuenta</h2>
           <button type="button" className="link" onClick={() => navigate('/cuentas')}>Ver mis cuentas</button>
@@ -76,7 +77,7 @@ export function ManagementPage({ ledger, navigate, onRegisterOccurrence }) {
         <DueList due={due} onRegister={onRegisterOccurrence} />
       </section>
 
-      <section className="card" aria-labelledby="mg-recurring">
+      <section className="card min-[1100px]:col-start-2 min-[1100px]:row-span-2" aria-labelledby="mg-recurring">
         <div className="card-head">
           <h2 id="mg-recurring">Gastos e ingresos frecuentes</h2>
           <button type="button" className="btn btn-primary btn-small" onClick={() => setEditingRecurring({})}>

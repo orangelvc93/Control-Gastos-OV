@@ -1,0 +1,38 @@
+/* Punto de entrada de estilos.
+   Capas, de menor a mayor prioridad: tema de Tailwind, app anterior (styles.css), interfaz actual (app.css) y utilidades de Tailwind.
+   Las utilidades van al final para que una clase de Tailwind siempre gane al CSS que va reemplazando.
+   Sin el "preflight" de Tailwind: app.css ya trae su propio reset y no se debe alterar lo existente. */
+
+@layer theme, legacy, app, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import './styles.css' layer(legacy);
+@import './app/app.css' layer(app);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* dark: aplica en modo oscuro (elegido o del sistema); el claro es el que no lleva prefijo. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Colores de la app como clases de Tailwind (bg-surface, text-muted, border-border…).
+   Apuntan a las variables de app.css, así que cambian solos con el tema claro u oscuro. */
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-text: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-subtle: var(--c-subtle);
+  --color-primary: var(--c-primary);
+  --color-primary-strong: var(--c-primary-strong);
+  --color-on-primary: var(--c-on-primary);
+  --color-accent: var(--c-accent);
+  --color-positive: var(--c-positive);
+  --color-negative: var(--c-negative);
+  --color-warning: var(--c-warning);
+  --color-info: var(--c-info);
+}
+
+/* rounded-sm / rounded-md / rounded-lg usan los radios de la app: --radius-* de app.css pisa al de Tailwind. */

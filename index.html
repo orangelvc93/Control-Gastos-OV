@@ -12,6 +12,16 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Control de gastos</title>
+    <script>
+      // Tema antes del primer dibujo (mismo cálculo que src/shared/lib/theme.js) para que no parpadee.
+      (function () {
+        var pref = 'sistema';
+        try { pref = localStorage.getItem('cg-tema') || 'sistema'; } catch (e) {}
+        var light = pref === 'claro' || (pref !== 'oscuro' && window.matchMedia('(prefers-color-scheme: light)').matches);
+        document.documentElement.dataset.theme = light ? 'light' : 'dark';
+        if (light) document.querySelector('meta[name="theme-color"]').setAttribute('content', '#4d4845');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

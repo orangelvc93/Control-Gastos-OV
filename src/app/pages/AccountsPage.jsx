@@ -9,7 +9,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Amount, DebtAmount } from '../ui/Field';
 import { Icon } from '../ui/Icon';
 import {
-  cardTabs, CardSummary, ExistingInstallmentSheet, InstallmentsView, PayCardSheet, StatementNoteSheet, StatementView,
+  cardTabs, CardSummary, ExistingInstallmentSheet, InstallmentsView, PayCardSheet, PrepaySheet, StatementNoteSheet, StatementView,
 } from './CardPanels';
 import { InterestPanel, InterestSheet, interestTabs } from './InterestPanels';
 import { ExtraPaymentSheet, LoanSheet, LoanSimulator, LoanSummary, LoanTable, loanTabs } from './LoanPanels';
@@ -131,6 +131,7 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
   const [paying, setPaying] = useState(null);
   const [noting, setNoting] = useState(null);
   const [installmentSheet, setInstallmentSheet] = useState(null);
+  const [prepaying, setPrepaying] = useState(null);
   const [extraPayment, setExtraPayment] = useState(null);
   const [interestSheet, setInterestSheet] = useState(null);
   const account = accounts.find((item) => item.id === accountId);
@@ -229,6 +230,7 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
           onOpenPurchase={onSelectTransaction}
           onAddExisting={() => setInstallmentSheet({})}
           onEditExisting={(plan) => setInstallmentSheet({ existing: plan })}
+          onPrepay={setPrepaying}
         />
       )}
 
@@ -254,6 +256,7 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
 
       {paying && <PayCardSheet account={account} accounts={accounts} ledger={ledger} status={paying} onSave={actions.payCard} onClose={() => setPaying(null)} />}
       {noting && <StatementNoteSheet account={account} statement={noting} onSave={actions.saveStatement} onClose={() => setNoting(null)} />}
+      {prepaying && <PrepaySheet account={account} plan={prepaying} onSave={actions.prepayInstallment} onClose={() => setPrepaying(null)} />}
       {installmentSheet && (
         <ExistingInstallmentSheet
           account={account}

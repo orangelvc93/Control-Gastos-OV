@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { formatCents } from '../../shared/lib/cents';
+import { areAmountsHidden, formatCents, HIDDEN_AMOUNT } from '../../shared/lib/cents';
 import { today } from '../../shared/lib/date';
 import {
   accountBalanceBars, cardUsage, monthlyIncomeExpenses, netWorthSeries, periodMonths, periodTotals, periods, totalsByCategory,
@@ -19,8 +19,10 @@ const COLORS = {
 };
 const axis = { stroke: '#968ca8', fontSize: 12 };
 const grid = 'rgba(255,255,255,0.08)';
-const money = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-const compact = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 });
+const currency = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+const money = { format: (value) => (areAmountsHidden() ? HIDDEN_AMOUNT : currency.format(value)) };
+const compactCurrency = new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 });
+const compact = { format: (value) => (areAmountsHidden() ? '•••' : compactCurrency.format(value)) };
 
 function ChartTooltip({ active, payload, label, labelFormatter }) {
   if (!active || !payload?.length) return null;

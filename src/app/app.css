@@ -21,6 +21,33 @@
   --c-warning: #fbbf24;
   --c-info: #7dd3fc;
   --c-focus: #ffb15f;
+  --c-focus-ring: rgba(255, 177, 95, 0.45);
+  --c-on-danger: #2a050c;
+  --c-error-text: #fda4af;
+
+  /* Fondos tenues para avisos, insignias y estados */
+  --c-tint-warning: rgba(251, 191, 36, 0.14);
+  --c-tint-negative: rgba(251, 113, 133, 0.14);
+  --c-tint-positive: rgba(74, 222, 128, 0.14);
+  --c-tint-accent: rgba(167, 139, 250, 0.16);
+  --c-tint-info: rgba(125, 211, 252, 0.1);
+  --c-alert-warning-text: #fde68a;
+  --c-alert-error-text: #fecdd3;
+  --c-alert-info-text: #bae6fd;
+  --c-negative-border: rgba(251, 113, 133, 0.45);
+
+  /* Barras, capas flotantes y sombras */
+  --c-bar-bg: rgba(11, 9, 18, 0.94);
+  --c-tabbar-bg: rgba(21, 17, 31, 0.96);
+  --c-popover: #241d33;
+  --c-toast: #2a2238;
+  --c-shadow: rgba(0, 0, 0, 0.45);
+  --c-backdrop: rgba(0, 0, 0, 0.6);
+  --c-primary-shadow: rgba(255, 138, 42, 0.35);
+  --c-hero-glow: rgba(255, 138, 42, 0.22);
+  --c-hero-from: #241a36;
+  --c-chart-grid: rgba(255, 255, 255, 0.08);
+  --c-chart-cursor: rgba(255, 255, 255, 0.05);
 
   --c-yellow: #facc15;
   --c-blue: #60a5fa;
@@ -47,6 +74,69 @@
   --fs-hero: clamp(2rem, 8vw, 2.75rem);
   --tabbar-height: 64px;
 }
+
+
+/* Tema claro: mismos tokens, otros valores. Textos con contraste AA sobre blanco. */
+:root[data-theme='light'] {
+  /* Colores tomados de la imagen de referencia: grises cálidos con brillo naranja,
+     vidrio translúcido, texto blanco, botón blanco, acento naranja y gráficas amarillo / verde lima. */
+  color-scheme: dark;
+  --c-bg: #4d4845;
+  --c-surface: rgba(255, 255, 255, 0.1);
+  --c-surface-2: rgba(255, 255, 255, 0.08);
+  --c-surface-3: rgba(255, 255, 255, 0.18);
+  --c-border: rgba(255, 255, 255, 0.12);
+  --c-border-strong: rgba(255, 255, 255, 0.24);
+  --c-text: #f7f4f1;
+  --c-muted: #d9d2cc;
+  --c-subtle: #c4bcb6;
+  --c-primary: #ff7a2f;
+  --c-primary-strong: #ff9a5c;
+  --c-on-primary: #1f1b19;
+  --c-accent: #e6d43f;
+  --c-positive: #bfe98f;
+  --c-negative: #ff9c86;
+  --c-warning: #e6d43f;
+  --c-info: #a9d4f5;
+  --c-focus: #ffffff;
+  --c-focus-ring: rgba(255, 255, 255, 0.35);
+  --c-on-danger: #2a0f08;
+  --c-error-text: #ffb4a3;
+
+  --c-yellow: #e6d43f;
+  --c-blue: #8fc1ff;
+  --c-red: #ff8f7a;
+  --c-green: #bfe98f;
+  --c-purple: #c7b6ff;
+  --c-orange: #ff7a2f;
+  --c-pink: #ff9fcb;
+
+  --c-tint-warning: rgba(230, 212, 63, 0.18);
+  --c-tint-negative: rgba(255, 140, 115, 0.18);
+  --c-tint-positive: rgba(191, 233, 143, 0.16);
+  --c-tint-accent: rgba(230, 212, 63, 0.16);
+  --c-tint-info: rgba(169, 212, 245, 0.16);
+  --c-alert-warning-text: #f5eaa0;
+  --c-alert-error-text: #ffd0c5;
+  --c-alert-info-text: #d4ebfb;
+  --c-negative-border: rgba(255, 156, 134, 0.5);
+
+  --c-bar-bg: rgba(64, 59, 56, 0.9);
+  --c-tabbar-bg: rgba(64, 59, 56, 0.94);
+  --c-popover: #3b3633;
+  --c-toast: #3b3633;
+  --c-shadow: rgba(20, 16, 14, 0.35);
+  --c-backdrop: rgba(20, 16, 14, 0.55);
+  --c-primary-shadow: rgba(255, 122, 47, 0.35);
+  --c-hero-glow: rgba(255, 122, 47, 0.45);
+  --c-hero-from: rgba(140, 100, 82, 0.55);
+  --c-chart-grid: rgba(255, 255, 255, 0.12);
+  --c-chart-cursor: rgba(255, 255, 255, 0.08);
+  --c-glass-edge: rgba(255, 255, 255, 0.14);
+  --c-ink: #f7f5f3;
+  --c-on-ink: #1f1b19;
+}
+
 
 .app {
   background: var(--c-bg);
@@ -142,7 +232,7 @@
 
 .tabbar {
   align-items: center;
-  background: rgba(21, 17, 31, 0.96);
+  background: var(--c-tabbar-bg);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--c-border);
   bottom: 0;
@@ -176,7 +266,7 @@
   align-items: center;
   background: var(--c-primary);
   border-radius: 50%;
-  box-shadow: 0 8px 24px rgba(255, 138, 42, 0.35);
+  box-shadow: 0 8px 24px var(--c-primary-shadow);
   color: var(--c-on-primary);
   display: grid;
   height: 56px;
@@ -305,7 +395,7 @@
 
 .btn-danger {
   background: var(--c-negative);
-  color: #2a050c;
+  color: var(--c-on-danger);
 }
 
 .btn-ghost-danger {
@@ -383,8 +473,8 @@
 
 .hero-card {
   background:
-    radial-gradient(circle at 100% 0%, rgba(255, 138, 42, 0.22), transparent 55%),
-    linear-gradient(160deg, #241a36, var(--c-surface));
+    radial-gradient(circle at 100% 0%, var(--c-hero-glow), transparent 55%),
+    linear-gradient(160deg, var(--c-hero-from), var(--c-surface));
   border: 1px solid var(--c-border);
   border-radius: var(--radius-lg);
   display: grid;
@@ -519,18 +609,18 @@
 }
 
 .alert-warning {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fde68a;
+  background: var(--c-tint-warning);
+  color: var(--c-alert-warning-text);
 }
 
 .alert-error {
-  background: rgba(251, 113, 133, 0.14);
-  color: #fecdd3;
+  background: var(--c-tint-negative);
+  color: var(--c-alert-error-text);
 }
 
 .alert-info {
-  background: rgba(125, 211, 252, 0.1);
-  color: #bae6fd;
+  background: var(--c-tint-info);
+  color: var(--c-alert-info-text);
 }
 
 .empty {
@@ -820,10 +910,10 @@
   width: 36px;
 }
 
-.tx-badge-gasto { background: rgba(251, 113, 133, 0.14); color: var(--c-negative); }
-.tx-badge-ingreso { background: rgba(74, 222, 128, 0.14); color: var(--c-positive); }
-.tx-badge-transferencia { background: rgba(167, 139, 250, 0.16); color: var(--c-accent); }
-.tx-badge-ajuste { background: rgba(251, 191, 36, 0.14); color: var(--c-warning); }
+.tx-badge-gasto { background: var(--c-tint-negative); color: var(--c-negative); }
+.tx-badge-ingreso { background: var(--c-tint-positive); color: var(--c-positive); }
+.tx-badge-transferencia { background: var(--c-tint-accent); color: var(--c-accent); }
+.tx-badge-ajuste { background: var(--c-tint-warning); color: var(--c-warning); }
 
 .tx-text {
   display: grid;
@@ -870,7 +960,7 @@
 }
 
 .pill-pending {
-  background: rgba(251, 191, 36, 0.16);
+  background: var(--c-tint-warning);
   color: var(--c-warning);
 }
 
@@ -905,10 +995,10 @@
 }
 
 .chart-tooltip {
-  background: #241d33;
+  background: var(--c-popover);
   border: 1px solid var(--c-border-strong);
   border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px var(--c-shadow);
   color: var(--c-text);
   display: grid;
   font-size: var(--fs-sm);
@@ -1043,7 +1133,7 @@
 
 .topbar {
   align-items: center;
-  background: rgba(11, 9, 18, 0.94);
+  background: var(--c-bar-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--c-border);
   display: flex;
@@ -1088,7 +1178,7 @@
 .badge {
   background: var(--c-negative);
   border-radius: 99px;
-  color: #2a050c;
+  color: var(--c-on-danger);
   font-size: 0.6875rem;
   font-weight: 800;
   line-height: 1;
@@ -1351,7 +1441,7 @@
 .app .input:focus,
 .app dialog .input:focus {
   border-color: var(--c-focus);
-  outline: 2px solid rgba(255, 177, 95, 0.45);
+  outline: 2px solid var(--c-focus-ring);
 }
 
 .app .input[aria-invalid="true"] {
@@ -1370,7 +1460,7 @@
 }
 
 .field-error {
-  color: #fda4af;
+  color: var(--c-error-text);
   font-size: var(--fs-xs);
 }
 
@@ -1455,7 +1545,7 @@
 }
 
 .sheet::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--c-backdrop);
 }
 
 .sheet-panel {
@@ -1542,11 +1632,11 @@
 
 .toast {
   align-items: center;
-  background: #2a2238;
+  background: var(--c-toast);
   border: 1px solid var(--c-border-strong);
   border-left: 4px solid var(--c-positive);
   border-radius: var(--radius-sm);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 10px 30px var(--c-shadow);
   color: var(--c-text);
   display: flex;
   font-size: var(--fs-sm);
@@ -1611,7 +1701,7 @@
 }
 
 .pay-atrasado {
-  border-color: rgba(251, 113, 133, 0.45);
+  border-color: var(--c-negative-border);
 }
 
 .figures {
@@ -1716,6 +1806,13 @@
 
 .plan-list li:last-child {
   border-bottom: 0;
+}
+
+.plan-item {
+  align-items: center;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .plan-row {
@@ -1847,7 +1944,7 @@
 
 .debt-sano .stat-value { color: var(--c-positive); }
 .debt-cuidado .stat-value { color: var(--c-warning); }
-.debt-alto .stat-value { color: #fb7185; }
+.debt-alto .stat-value { color: var(--c-negative); }
 
 .inline-form {
   align-items: center;
@@ -1925,7 +2022,7 @@
 
 .progress-good span { background: var(--c-positive); }
 .progress-warn span { background: var(--c-warning); }
-.progress-over span { background: #fb7185; }
+.progress-over span { background: var(--c-negative); }
 
 .plan-groups,
 .budget-list,
@@ -2011,9 +2108,9 @@
   padding: 1px var(--space-2);
 }
 
-.status-good { background: rgba(74, 222, 128, 0.14); color: var(--c-positive); }
-.status-warn { background: rgba(251, 191, 36, 0.14); color: var(--c-warning); }
-.status-over { background: rgba(251, 113, 133, 0.14); color: #fb7185; }
+.status-good { background: var(--c-tint-positive); color: var(--c-positive); }
+.status-warn { background: var(--c-tint-warning); color: var(--c-warning); }
+.status-over { background: var(--c-tint-negative); color: var(--c-negative); }
 
 @media (max-width: 560px) {
   .budget-row {
@@ -2023,5 +2120,218 @@
   .budget-figures {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+}
+
+/* Inicio: cuentas por segmento; en pantallas grandes la página usa todo el ancho */
+
+.home-column {
+  display: contents;
+}
+
+.home-accounts {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.home-accounts-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.home-accounts-head h2 {
+  font-size: var(--fs-lg);
+  margin: 0;
+}
+
+.account-segments {
+  align-items: start;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+}
+
+.account-segment h3 {
+  color: var(--c-muted);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+@media (min-width: 1100px) {
+  .content:has(.page-home) {
+    max-width: 1440px;
+  }
+
+  .page-home {
+    align-items: start;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .page-home > .hero-card,
+  .page-home > .stat-grid,
+  .page-home > .home-accounts {
+    grid-column: 1 / -1;
+  }
+
+  /* Las cuentas van justo debajo del resumen; después, el mes y los últimos movimientos lado a lado. */
+  .page-home > .home-accounts {
+    order: 1;
+  }
+
+  .page-home > .home-column {
+    display: grid;
+    gap: var(--space-4);
+    order: 2;
+  }
+
+  .page-home > .home-recent {
+    order: 2;
+  }
+}
+
+/* Modales más anchos en pantallas grandes */
+
+@media (min-width: 1100px) {
+  .sheet {
+    max-width: 720px;
+  }
+
+  .sheet-sm {
+    max-width: 480px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .sheet {
+    max-width: 840px;
+  }
+}
+
+/* Gráficas (recharts dibuja colores como atributos SVG; el CSS los pisa para que sigan el tema) */
+
+.recharts-cartesian-grid line {
+  stroke: var(--c-chart-grid);
+}
+
+.recharts-cartesian-axis-tick-value {
+  fill: var(--c-subtle);
+}
+
+.recharts-rectangle.recharts-tooltip-cursor {
+  fill: var(--c-chart-cursor);
+}
+
+.recharts-curve.recharts-tooltip-cursor {
+  stroke: var(--c-subtle);
+}
+
+/* Páginas que se reparten en columnas en pantallas grandes (Gestión, Más) */
+
+@media (min-width: 1100px) {
+  .content:has(.page-split) {
+    max-width: 1280px;
+  }
+}
+
+/* Tema claro con estilo vidrio (solo colores y superficies; la tipografía es la de siempre): fondo cálido con degradado, tarjetas translúcidas con desenfoque,
+   esquinas amplias, menú lateral oscuro flotante y botones principales tipo píldora. */
+
+:root[data-theme='light'] .app {
+  background:
+    radial-gradient(900px 620px at 45% 18%, rgba(160, 104, 78, 0.55) 0%, transparent 65%),
+    radial-gradient(700px 500px at 100% 0%, rgba(120, 112, 108, 0.45) 0%, transparent 60%),
+    linear-gradient(160deg, #57524f 0%, #4a4542 55%, #403b38 100%);
+  background-attachment: fixed;
+}
+
+:root[data-theme='light'] .card,
+:root[data-theme='light'] .stat,
+:root[data-theme='light'] .hero-card {
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  border-color: var(--c-glass-edge);
+  border-radius: 24px;
+  box-shadow: 0 14px 34px rgba(20, 16, 14, 0.18);
+}
+
+:root[data-theme='light'] .hero-card {
+  background:
+    radial-gradient(circle at 85% 10%, rgba(255, 122, 47, 0.45), transparent 55%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(140, 100, 82, 0.35));
+}
+
+/* Botón principal: píldora oscura (en el menú lateral oscuro, píldora blanca) */
+:root[data-theme='light'] .btn {
+  border-radius: 999px;
+}
+
+:root[data-theme='light'] .btn-primary {
+  background: var(--c-ink);
+  color: var(--c-on-ink);
+}
+
+:root[data-theme='light'] .btn-primary:hover:not(:disabled) {
+  background: #e9e4e0;
+}
+
+:root[data-theme='light'] .app .input,
+:root[data-theme='light'] .app dialog .input {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+
+:root[data-theme='light'] .sheet-panel {
+  background: #4a4542;
+  border-radius: 28px 28px 0 0;
+}
+
+@media (min-width: 640px) {
+  :root[data-theme='light'] .sheet-panel {
+    border-radius: 28px;
+  }
+}
+
+@media (min-width: 900px) {
+  :root[data-theme='light'] .sidebar {
+    background: #1a1a1a;
+    border: 0;
+    border-radius: 28px;
+    box-shadow: 0 18px 40px rgba(28, 25, 23, 0.25);
+    color: #f2ede9;
+    height: calc(100dvh - 32px);
+    margin: 16px 0 16px 16px;
+    top: 16px;
+  }
+
+  :root[data-theme='light'] .sidebar .brand,
+  :root[data-theme='light'] .sidebar .icon-button {
+    color: #f2ede9;
+  }
+
+  :root[data-theme='light'] .side-nav a {
+    color: #b9b0aa;
+  }
+
+  :root[data-theme='light'] .side-nav a:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+  }
+
+  :root[data-theme='light'] .side-nav a.is-active {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+  }
+
+  :root[data-theme='light'] .sidebar .btn-primary {
+    background: #ffffff;
+    color: #1f1b19;
+  }
+
+  :root[data-theme='light'] .sidebar .btn-primary:hover:not(:disabled) {
+    background: #f1ece8;
   }
 }

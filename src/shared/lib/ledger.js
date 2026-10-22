@@ -116,10 +116,14 @@ export function shiftMonth(key, delta) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// Ingreso disponible: un ingreso cuya categoría cuenta como ingreso. Los aportes que el trabajo deposita
+// directo en un fondo (Anefi) suman al saldo de esa cuenta, pero no son dinero que entre para gastar.
+export const isAvailableIncome = (transaction) => transaction.kind === 'ingreso' && transaction.countsAsIncome !== false;
+
 // Ingresos y gastos del mes (las transferencias y ajustes no cuentan: no son ingreso ni gasto).
 export function monthSummary(transactions, key) {
   const month = activeTransactions(transactions).filter((transaction) => transaction.status === 'confirmado' && monthKey(transaction.date) === key);
-  const income = sumCents(month.filter((transaction) => transaction.kind === 'ingreso'), (transaction) => transaction.cents);
+  const income = sumCents(month.filter(isAvailableIncome), (transaction) => transaction.cents);
   const expenses = -sumCents(month.filter((transaction) => transaction.kind === 'gasto'), (transaction) => transaction.cents);
   return { income, expenses, balance: income - expenses };
 }

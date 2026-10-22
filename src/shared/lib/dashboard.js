@@ -1,4 +1,4 @@
-import { activeTransactions, isCard, isDebt, monthKey, monthLabel, monthNames, shiftMonth } from './ledger';
+import { activeTransactions, isAvailableIncome, isCard, isDebt, monthKey, monthLabel, monthNames, shiftMonth } from './ledger';
 
 // Datos para las gráficas del dashboard. Se calcula en centavos y se pasa a dólares solo al final.
 const toDollars = (cents) => Math.round(cents) / 100;
@@ -29,7 +29,7 @@ function confirmedIn(transactions, months) {
 
 export function periodTotals(transactions, months) {
   const items = confirmedIn(transactions, months);
-  const income = items.filter((item) => item.kind === 'ingreso').reduce((total, item) => total + item.cents, 0);
+  const income = items.filter(isAvailableIncome).reduce((total, item) => total + item.cents, 0);
   const expenses = -items.filter((item) => item.kind === 'gasto').reduce((total, item) => total + item.cents, 0);
   return {
     income,
@@ -43,7 +43,7 @@ export function monthlyIncomeExpenses(transactions, months) {
   const items = confirmedIn(transactions, months);
   return months.map((key) => {
     const month = items.filter((item) => monthKey(item.date) === key);
-    const income = month.filter((item) => item.kind === 'ingreso').reduce((total, item) => total + item.cents, 0);
+    const income = month.filter(isAvailableIncome).reduce((total, item) => total + item.cents, 0);
     const expenses = -month.filter((item) => item.kind === 'gasto').reduce((total, item) => total + item.cents, 0);
     return { key, label: shortMonth(key), fullLabel: monthLabel(key), ingresos: toDollars(income), gastos: toDollars(expenses) };
   });
@@ -53,7 +53,7 @@ export function monthlyIncomeExpenses(transactions, months) {
 export function totalsByCategory(transactions, months, categories, kind) {
   const names = Object.fromEntries(categories.map((category) => [category.id, category.name]));
   const totals = new Map();
-  for (const item of confirmedIn(transactions, months).filter((transaction) => transaction.kind === kind)) {
+  for (const item of confirmedIn(transactions, months).filter((transaction) => transaction.kind === kind && (kind !== 'ingreso' || isAvailableIncome(transaction)))) {
     totals.set(item.categoryId, (totals.get(item.categoryId) ?? 0) + Math.abs(item.cents));
   }
   const sorted = [...totals.entries()]
