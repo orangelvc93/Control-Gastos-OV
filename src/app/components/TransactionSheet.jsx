@@ -154,6 +154,8 @@ export function TransactionSheet({
   const canApplyFollowing = Boolean(existing && recurringItem && existing.occurrenceDate && !changedShape);
 
   const openAccounts = accounts.filter((account) => !account.archivedAt || account.id === form.accountId || account.id === form.toAccountId);
+  // De ahorro e inversión no salen gastos (se retira a otra cuenta); se conserva si ya era la cuenta del movimiento.
+  const spendAccounts = openAccounts.filter((account) => !account.isSavings || isDebt(account) || account.id === existing?.accountId);
   const kindCategories = useMemo(
     () => categories.filter((category) => category.kind === form.kind && (!category.archivedAt || category.id === form.categoryId)),
     [categories, form.kind, form.categoryId],
@@ -168,6 +170,9 @@ export function TransactionSheet({
     const cents = parseAmountInput(form.amount);
     if (!Number.isFinite(cents) || cents <= 0) next.amount = 'Escribe un monto mayor que cero, por ejemplo 12,50.';
     if (!form.accountId) next.accountId = 'Elige una cuenta.';
+    else if (form.kind === 'gasto' && !spendAccounts.some((account) => account.id === form.accountId)) {
+      next.accountId = 'De una cuenta de ahorro o inversión no salen gastos: retira primero a otra cuenta.';
+    }
     if (!form.date) next.date = 'Escribe una fecha válida, por ejemplo 20/10/2026.';
     if (deferred && !(Number(form.months) >= 2 && Number(form.months) <= 60)) next.months = 'Entre 2 y 60 meses.';
     if (form.kind === 'transferencia') {
@@ -299,7 +304,7 @@ export function TransactionSheet({
                 {(props) => (
                   <select {...props} className="input" value={form.accountId} onChange={(event) => update({ accountId: event.target.value })} disabled={isAdjustment}>
                     <option value="">Elige…</option>
-                    {openAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+                    {(form.kind === 'gasto' ? spendAccounts : openAccounts).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
                   </select>
                 )}
               </Field>

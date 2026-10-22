@@ -38,3 +38,12 @@ $$\text{saldo} = \text{saldo inicial} + \text{ingresos} - \text{gastos} \pm \tex
 - **Patrimonio total** (neto) = lo que tengo − lo que debo (las deudas restan; ver [[Plan para salir de deudas]]).
 - **Total en ahorros.**
 - **Dinero disponible.**
+
+## Depósitos y retiros (ahorro e inversión)
+
+En las cuentas de ahorro e inversión no se registran gastos. En su lugar, la cuenta tiene **Depositar** y **Retirar**, los dos con **motivo** obligatorio:
+
+- **Retirar**: transferencia a otra cuenta tuya (no cuenta como gasto; lo que se gaste después se anota en la cuenta a la que llegó).
+- **Depositar**: transferencia desde otra cuenta tuya, o **ingreso externo** (aporte del trabajo, regalo…) con su categoría.
+
+En *Nuevo movimiento → Gasto* no aparecen las cuentas de ahorro e inversión (salvo al editar un gasto que ya era de esa cuenta).

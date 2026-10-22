@@ -48,6 +48,9 @@
   --c-hero-from: #241a36;
   --c-chart-grid: rgba(255, 255, 255, 0.08);
   --c-chart-cursor: rgba(255, 255, 255, 0.05);
+  --c-tile: #211a2f;
+  --c-tile-hover: #2a2139;
+  --c-tile-border: rgba(255, 255, 255, 0.08);
 
   --c-yellow: #facc15;
   --c-blue: #60a5fa;
@@ -133,6 +136,9 @@
   --c-chart-grid: rgba(255, 255, 255, 0.12);
   --c-chart-cursor: rgba(255, 255, 255, 0.08);
   --c-glass-edge: rgba(255, 255, 255, 0.14);
+  --c-tile: rgba(255, 255, 255, 0.1);
+  --c-tile-hover: rgba(255, 255, 255, 0.16);
+  --c-tile-border: rgba(255, 255, 255, 0.14);
   --c-ink: #f7f5f3;
   --c-on-ink: #1f1b19;
 }
@@ -2334,4 +2340,45 @@
   :root[data-theme='light'] .sidebar .btn-primary:hover:not(:disabled) {
     background: #f1ece8;
   }
+}
+
+/* Filas como contenedores: cada frecuente, cuenta, próximo, diferido o categoría
+   va en su propia tarjetita de otro tono, para ver de un vistazo qué agrupa cada una. */
+
+.category-list,
+.account-mini-list,
+.due-list,
+.plan-list {
+  gap: var(--space-2);
+}
+
+.category-list li,
+.due-list li,
+.plan-list li {
+  background: var(--c-tile);
+  border: 1px solid var(--c-tile-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+
+.category-list li:last-child,
+.due-list li:last-child,
+.plan-list li:last-child {
+  border-bottom: 1px solid var(--c-tile-border);
+}
+
+.account-mini {
+  background: var(--c-tile);
+  border: 1px solid var(--c-tile-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+
+.account-mini:hover,
+.plan-row:hover {
+  background: var(--c-tile-hover);
+}
+
+.plan-list li .plan-row {
+  background: transparent;
 }

@@ -32,3 +32,7 @@ Ingresos fijos (sueldo, arriendos cobrados…) y gastos fijos (servicios, suscri
 - **Avisa de los que vienen** (ver [[Alertas]]).
 - Al editar o eliminar uno, pregunta si aplica a **"solo este"** o a **"este y los siguientes"**.
 - Las cuotas de [[Créditos y préstamos]] se crean automáticamente como recurrentes.
+
+## Dónde se crean
+
+En **Gestión → Gastos e ingresos frecuentes** (todos) y dentro de **cada cuenta → pestaña Frecuentes** (los que salen de esa cuenta o llegan a ella). Desde una cuenta, uno nuevo ya trae esa cuenta elegida y empieza como *Ingreso fijo* si es de ahorro o inversión (por ejemplo los aportes a Anefi) o como *Gasto fijo* en las demás.

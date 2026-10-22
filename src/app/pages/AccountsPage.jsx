@@ -4,6 +4,8 @@ import { formatCents, sumCents } from '../../shared/lib/cents';
 import { accountBreakdown, accountTypeLabels, isCard, isDebt, isLoan, withRunningBalance } from '../../shared/lib/ledger';
 import { loanState } from '../../shared/lib/loans';
 import { AccountSheet, AdjustBalanceSheet } from '../components/AccountSheet';
+import { RecurringPanel } from '../components/RecurringPanel';
+import { SavingsMovementSheet } from '../components/SavingsMovementSheet';
 import { TransactionList } from '../components/TransactionList';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Amount, DebtAmount } from '../ui/Field';
@@ -134,6 +136,7 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
   const [prepaying, setPrepaying] = useState(null);
   const [extraPayment, setExtraPayment] = useState(null);
   const [interestSheet, setInterestSheet] = useState(null);
+  const [savingsMove, setSavingsMove] = useState(null);
   const account = accounts.find((item) => item.id === accountId);
   const loan = ledger.loans.find((item) => item.accountId === accountId);
 
@@ -150,9 +153,11 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
   const cardTabsOn = card && cardReady(account);
   const loanTabsOn = Boolean(loan);
   const interestOn = account.earnsInterest && !isDebt(account);
-  const tabs = cardTabsOn ? cardTabs : loanTabsOn ? loanTabs : interestOn ? interestTabs : null;
+  const savingsAccount = account.isSavings && !isDebt(account);
+  // Todas las cuentas tienen la pestaña Frecuentes; las demás dependen del tipo.
+  const tabs = [...(cardTabsOn ? cardTabs : loanTabsOn ? loanTabs : interestOn ? interestTabs : [['movimientos', 'Movimientos']]), ['frecuentes', 'Frecuentes']];
   // Cada tipo de cuenta tiene sus pestañas; si la elegida no existe en esta, se abre la primera.
-  const activeTab = tabs && !tabs.some(([key]) => key === tab) ? tabs[0][0] : tab;
+  const activeTab = tabs.some(([key]) => key === tab) ? tab : tabs[0][0];
   const breakdown = accountBreakdown(account, transactions);
   const rows = withRunningBalance(account, transactions);
   const lines = [
@@ -196,7 +201,16 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
           </p>
         )}
         <div className="hero-actions">
-          {!loan && (
+          {/* En ahorro e inversión no hay gastos: se deposita o se retira, con su motivo. */}
+          {savingsAccount && (
+            <>
+              <button type="button" className="btn btn-primary" onClick={() => setSavingsMove('deposito')}>
+                <Icon name="plus" size={18} /> Depositar
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setSavingsMove('retiro')}>Retirar</button>
+            </>
+          )}
+          {!loan && !savingsAccount && (
             <button type="button" className="btn btn-primary" onClick={() => onNewTransaction({ accountId: account.id, kind: card ? 'gasto' : undefined })}>
               <Icon name="plus" size={18} /> Movimiento
             </button>
@@ -211,15 +225,13 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
         <p className="alert alert-info">Agrega el día de corte y el día máximo de pago (Editar) para ver tu estado de cuenta, cuánto pagar y tus diferidos.</p>
       )}
 
-      {tabs && (
-        <div className="chips tabs" role="tablist" aria-label={loan ? 'Secciones del crédito' : 'Secciones de la tarjeta'}>
-          {tabs.map(([key, label]) => (
-            <button key={key} type="button" role="tab" aria-selected={activeTab === key} className={`chip ${activeTab === key ? 'is-active' : ''}`} onClick={() => setTab(key)}>
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="chips tabs" role="tablist" aria-label="Secciones de la cuenta">
+        {tabs.map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={activeTab === key} className={`chip ${activeTab === key ? 'is-active' : ''}`} onClick={() => setTab(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
 
       {cardTabsOn && activeTab === 'resumen' && <CardSummary account={account} ledger={ledger} onPay={setPaying} onNote={setNoting} />}
       {cardTabsOn && activeTab === 'estado' && <StatementView account={account} ledger={ledger} categories={categories} onNote={setNoting} />}
@@ -240,7 +252,9 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
 
       {interestOn && activeTab === 'intereses' && <InterestPanel account={account} ledger={ledger} onNote={setInterestSheet} />}
 
-      {(!tabs || activeTab === 'movimientos') && (
+      {activeTab === 'frecuentes' && <RecurringPanel ledger={ledger} account={account} />}
+
+      {activeTab === 'movimientos' && (
         <section className="card" aria-label="Movimientos de la cuenta">
           <TransactionList
             items={rows}
@@ -256,6 +270,16 @@ export function AccountDetailPage({ ledger, accountId, navigate, onSelectTransac
 
       {paying && <PayCardSheet account={account} accounts={accounts} ledger={ledger} status={paying} onSave={actions.payCard} onClose={() => setPaying(null)} />}
       {noting && <StatementNoteSheet account={account} statement={noting} onSave={actions.saveStatement} onClose={() => setNoting(null)} />}
+      {savingsMove && (
+        <SavingsMovementSheet
+          account={account}
+          accounts={accounts}
+          categories={categories}
+          mode={savingsMove}
+          onSave={actions.saveTransaction}
+          onClose={() => setSavingsMove(null)}
+        />
+      )}
       {prepaying && <PrepaySheet account={account} plan={prepaying} onSave={actions.prepayInstallment} onClose={() => setPrepaying(null)} />}
       {installmentSheet && (
         <ExistingInstallmentSheet
