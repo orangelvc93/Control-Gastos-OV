@@ -52,6 +52,7 @@ export function MorePage({ ledger, navigate, onLogout, userEmail }) {
     ['/avisos', 'bell', 'Avisos', 'Pagos próximos, frecuentes registrados y alertas'],
     ['/ajustes', 'bell', 'Avisos y Telegram', 'Cuándo avisarte y conectar tu Telegram'],
     ['/categorias', 'tag', 'Categorías', 'Crear y ordenar tus categorías de ingresos y gastos'],
+    ['/respaldo', 'history', 'Respaldo', 'Descarga en Excel toda tu información, por día, mes, año o todo'],
     ['/papelera', 'trash', 'Papelera', trashCount ? `${trashCount} movimiento(s) para restaurar o eliminar` : 'Vacía'],
     ['/historico', 'history', 'Histórico 2026 (app anterior)', 'Tus datos de enero a octubre, presupuesto y deudas, tal como estaban'],
   ];

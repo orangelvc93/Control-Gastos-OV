@@ -24,3 +24,7 @@ En **Más → Impuestos → Reportes en Excel**:
 
 El PDF queda pendiente.
 
+## Respaldo (Más → Respaldo)
+
+Excel con **toda la información**: cuentas (con saldo inicial y actual), categorías, movimientos (con datos de factura, incluidos los de la papelera), frecuentes, diferidos, créditos, estados de cuenta, metas, valores del SRI y ajustes. Los movimientos se filtran por **día, mes, año, rango o todo**; lo demás va completo. Se genera en el navegador y se descarga al dispositivo.
+

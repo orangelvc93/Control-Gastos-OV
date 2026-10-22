@@ -4,6 +4,7 @@ import { setAmountsHidden } from '../shared/lib/cents';
 import { watchSystemTheme } from '../shared/lib/theme';
 import { TransactionSheet } from './components/TransactionSheet';
 import { AccountDetailPage, AccountsPage } from './pages/AccountsPage';
+import { BackupPage } from './pages/BackupPage';
 import { HomePage } from './pages/HomePage';
 import { ManagementPage } from './pages/ManagementPage';
 import { CategoriesPage, MorePage, TrashPage } from './pages/MorePages';
@@ -179,6 +180,8 @@ export function AppShell({ user, onLogout }) {
     page = <SettingsPage {...pageProps} />;
   } else if (path === '/categorias') {
     page = <CategoriesPage {...pageProps} />;
+  } else if (path === '/respaldo') {
+    page = <BackupPage {...pageProps} />;
   } else if (path === '/papelera') {
     page = <TrashPage {...pageProps} />;
   } else {
